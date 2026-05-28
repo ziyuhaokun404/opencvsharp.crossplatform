@@ -1,0 +1,23 @@
+<Project>
+  <PropertyGroup>
+    <OpenCvSharpNativeLibraryBaseName>OpenCvSharpExtern</OpenCvSharpNativeLibraryBaseName>
+    <OpenCvSharpNativeLibraryExtension Condition="$([MSBuild]::IsOSPlatform('Windows'))">dll</OpenCvSharpNativeLibraryExtension>
+    <OpenCvSharpNativeLibraryExtension Condition="$([MSBuild]::IsOSPlatform('OSX'))">dylib</OpenCvSharpNativeLibraryExtension>
+    <OpenCvSharpNativeLibraryExtension Condition="$([MSBuild]::IsOSPlatform('Linux'))">so</OpenCvSharpNativeLibraryExtension>
+    <OpenCvSharpNativeLibraryPrefix Condition="$([MSBuild]::IsOSPlatform('Windows'))"></OpenCvSharpNativeLibraryPrefix>
+    <OpenCvSharpNativeLibraryPrefix Condition="!$([MSBuild]::IsOSPlatform('Windows'))">lib</OpenCvSharpNativeLibraryPrefix>
+    <OpenCvSharpNativeLibraryFileName>$(OpenCvSharpNativeLibraryPrefix)$(OpenCvSharpNativeLibraryBaseName).$(OpenCvSharpNativeLibraryExtension)</OpenCvSharpNativeLibraryFileName>
+
+    <OpenCvSharpNativeRuntimeRid Condition="$([MSBuild]::IsOSPlatform('OSX')) and '$(PROCESSOR_ARCHITECTURE)' == 'ARM64'">osx-arm64</OpenCvSharpNativeRuntimeRid>
+    <OpenCvSharpNativeRuntimeRid Condition="$([MSBuild]::IsOSPlatform('OSX')) and '$(OpenCvSharpNativeRuntimeRid)' == ''">osx-x64</OpenCvSharpNativeRuntimeRid>
+    <OpenCvSharpNativeRuntimeRid Condition="$([MSBuild]::IsOSPlatform('Linux')) and '$(PROCESSOR_ARCHITECTURE)' == 'ARM64'">linux-arm64</OpenCvSharpNativeRuntimeRid>
+    <OpenCvSharpNativeRuntimeRid Condition="$([MSBuild]::IsOSPlatform('Linux')) and '$(OpenCvSharpNativeRuntimeRid)' == ''">linux-x64</OpenCvSharpNativeRuntimeRid>
+    <OpenCvSharpNativeRuntimeRid Condition="$([MSBuild]::IsOSPlatform('Windows')) and '$(PROCESSOR_ARCHITECTURE)' == 'ARM64'">win-arm64</OpenCvSharpNativeRuntimeRid>
+    <OpenCvSharpNativeRuntimeRid Condition="$([MSBuild]::IsOSPlatform('Windows')) and '$(OpenCvSharpNativeRuntimeRid)' == ''">win-x64</OpenCvSharpNativeRuntimeRid>
+
+    <OpenCvSharpNativeRuntimePath>$(MSBuildThisFileDirectory)build/native/$(OpenCvSharpNativeRuntimeRid)/$(OpenCvSharpNativeLibraryFileName)</OpenCvSharpNativeRuntimePath>
+    <OpenCvSharpNativeLegacyMacOsRuntimePath Condition="$([MSBuild]::IsOSPlatform('OSX'))">$(MSBuildThisFileDirectory)build/opencvsharp-extern-4.13/OpenCvSharpExtern/libOpenCvSharpExtern.dylib</OpenCvSharpNativeLegacyMacOsRuntimePath>
+    <OpenCvSharpNativeResolvedPath Condition="Exists('$(OpenCvSharpNativeRuntimePath)')">$(OpenCvSharpNativeRuntimePath)</OpenCvSharpNativeResolvedPath>
+    <OpenCvSharpNativeResolvedPath Condition="'$(OpenCvSharpNativeResolvedPath)' == '' and Exists('$(OpenCvSharpNativeLegacyMacOsRuntimePath)')">$(OpenCvSharpNativeLegacyMacOsRuntimePath)</OpenCvSharpNativeResolvedPath>
+  </PropertyGroup>
+</Project>

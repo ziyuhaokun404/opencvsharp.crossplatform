@@ -1,0 +1,7 @@
+<Project>
+  <ItemGroup Condition="'$(UseLocalOpenCvSharpNativeRuntime)' == 'true' and '$(OpenCvSharpNativeResolvedPath)' != ''">
+    <None Include="$(OpenCvSharpNativeResolvedPath)"
+          Link="$(OpenCvSharpNativeLibraryFileName)"
+          CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

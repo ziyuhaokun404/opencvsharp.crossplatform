@@ -1,0 +1,72 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="OpenCvSharp.Demo.Workbench.Avalonia.App"
+             RequestedThemeVariant="Default">
+             <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
+
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="AppSurfaceBrush" Color="#ECEFF3" />
+                    <SolidColorBrush x:Key="ChromeSurfaceBrush" Color="#FCFCFD" />
+                    <SolidColorBrush x:Key="PanelSurfaceBrush" Color="#F9FAFB" />
+                    <SolidColorBrush x:Key="CardSurfaceBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="ControlSurfaceBrush" Color="#F8FAFC" />
+                    <SolidColorBrush x:Key="ControlBorderBrush" Color="#CBD5E1" />
+                    <SolidColorBrush x:Key="DividerBrush" Color="#D6DCE6" />
+                    <SolidColorBrush x:Key="CardBorderBrush" Color="#D8DEE8" />
+                    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#111827" />
+                    <SolidColorBrush x:Key="TextBodyBrush" Color="#1F2937" />
+                    <SolidColorBrush x:Key="TextLabelBrush" Color="#344054" />
+                    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#475467" />
+                    <SolidColorBrush x:Key="TextMutedBrush" Color="#667085" />
+                    <SolidColorBrush x:Key="PrimaryBrush" Color="#2563EB" />
+                    <SolidColorBrush x:Key="PrimaryTextBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="BadgeSurfaceBrush" Color="#EEF4FF" />
+                    <SolidColorBrush x:Key="BadgeBorderBrush" Color="#C7D7FE" />
+                    <SolidColorBrush x:Key="BadgeTextBrush" Color="#2F4F9E" />
+                    <SolidColorBrush x:Key="CanvasBackdropBrush" Color="#E7EBF2" />
+                    <SolidColorBrush x:Key="PreviewPanelBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="PreviewHeaderBrush" Color="#F3F6FA" />
+                    <SolidColorBrush x:Key="PreviewBorderBrush" Color="#D6DCE6" />
+                    <SolidColorBrush x:Key="PreviewTextBrush" Color="#1F2937" />
+                    <SolidColorBrush x:Key="PreviewMutedBrush" Color="#667085" />
+                    <SolidColorBrush x:Key="ImageWellBrush" Color="#F8FAFC" />
+                </ResourceDictionary>
+
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="AppSurfaceBrush" Color="#111820" />
+                    <SolidColorBrush x:Key="ChromeSurfaceBrush" Color="#17202A" />
+                    <SolidColorBrush x:Key="PanelSurfaceBrush" Color="#151E27" />
+                    <SolidColorBrush x:Key="CardSurfaceBrush" Color="#1B2631" />
+                    <SolidColorBrush x:Key="ControlSurfaceBrush" Color="#202C38" />
+                    <SolidColorBrush x:Key="ControlBorderBrush" Color="#334155" />
+                    <SolidColorBrush x:Key="DividerBrush" Color="#293342" />
+                    <SolidColorBrush x:Key="CardBorderBrush" Color="#344052" />
+                    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#F8FAFC" />
+                    <SolidColorBrush x:Key="TextBodyBrush" Color="#E2E8F0" />
+                    <SolidColorBrush x:Key="TextLabelBrush" Color="#CBD5E1" />
+                    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#AAB6C5" />
+                    <SolidColorBrush x:Key="TextMutedBrush" Color="#8FA0B4" />
+                    <SolidColorBrush x:Key="PrimaryBrush" Color="#60A5FA" />
+                    <SolidColorBrush x:Key="PrimaryTextBrush" Color="#06101F" />
+                    <SolidColorBrush x:Key="BadgeSurfaceBrush" Color="#14243A" />
+                    <SolidColorBrush x:Key="BadgeBorderBrush" Color="#2B4C7A" />
+                    <SolidColorBrush x:Key="BadgeTextBrush" Color="#A9C9FF" />
+                    <SolidColorBrush x:Key="CanvasBackdropBrush" Color="#121A22" />
+                    <SolidColorBrush x:Key="PreviewPanelBrush" Color="#172230" />
+                    <SolidColorBrush x:Key="PreviewHeaderBrush" Color="#1B2A39" />
+                    <SolidColorBrush x:Key="PreviewBorderBrush" Color="#36485B" />
+                    <SolidColorBrush x:Key="PreviewTextBrush" Color="#E6EDF6" />
+                    <SolidColorBrush x:Key="PreviewMutedBrush" Color="#9BAAC0" />
+                    <SolidColorBrush x:Key="ImageWellBrush" Color="#101722" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
+
+    <Application.Styles>
+        <FluentTheme />
+    </Application.Styles>
+</Application>

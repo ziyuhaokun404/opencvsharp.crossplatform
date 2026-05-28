@@ -1,0 +1,39 @@
+.DS_Store
+.tmp/
+
+# Build outputs
+build/
+bin/
+obj/
+**/bin/
+**/obj/
+
+# Logs
+logs/
+*.log
+
+# IDE/editor
+.idea/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Test and coverage output
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+
+# Native build artifacts
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.o
+*.a
+*.dylib
+*.so
+*.dll
+*.pdb

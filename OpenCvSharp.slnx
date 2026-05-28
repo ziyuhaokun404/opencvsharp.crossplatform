@@ -1,0 +1,21 @@
+<Solution>
+  <Folder Name="/Libraries/">
+    <Project Path="src/OpenCvSharp.TemplateMatching/OpenCvSharp.TemplateMatching.csproj" />
+  </Folder>
+  <Folder Name="/Demos/">
+    <Project Path="demo/OpenCvSharp.Demo.Console/OpenCvSharp.Demo.Console.csproj" />
+    <Project Path="demo/OpenCvSharp.Demo.Workbench.Avalonia/OpenCvSharp.Demo.Workbench.Avalonia.csproj" />
+    <Project Path="demo/OpenCvSharp.Demo.TemplateMatch.Avalonia/OpenCvSharp.Demo.TemplateMatch.Avalonia.csproj" />
+  </Folder>
+  <Folder Name="/Solution Items/">
+    <File Path="README.md" />
+    <File Path="Agents.md" />
+    <File Path=".gitignore" />
+  </Folder>
+  <Folder Name="/Scripts/">
+    <File Path="scripts/build-native-runtime-macos.sh" />
+    <File Path="scripts/bundle-native-runtime-macos.sh" />
+    <File Path="scripts/stage-native-runtime.sh" />
+    <File Path="scripts/make-macos-native-bundle.sh" />
+  </Folder>
+</Solution>
