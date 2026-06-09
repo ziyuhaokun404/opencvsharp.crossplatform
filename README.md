@@ -6,7 +6,7 @@
 - `ref/opencvsharp-4.13`：OpenCvSharp 原生 C++ 源码（用于构建 `OpenCvSharpExtern`）
 - `demo/opencvsharp.demo.console`：控制台演示
 - `demo/opencvsharp.demo.workbench.avalonia`：图像处理工作台
-- `demo/opencvsharp.demo.templatematch.avalonia`：模板匹配可视化演示
+- `demo/opencvsharp.demo.location.avalonia`：模板匹配可视化演示
 
 目标是把 OpenCvSharp 的 .NET 演示和本地原生运行时解耦，让项目本身保持跨平台，而平台差异只留在原生库构建和分发环节。
 
@@ -74,7 +74,7 @@ scripts/bundle-native-runtime-macos.sh
 ```bash
 dotnet run --project demo/opencvsharp.demo.console/opencvsharp.demo.console.csproj
 dotnet run --project demo/opencvsharp.demo.workbench.avalonia/opencvsharp.demo.workbench.avalonia.csproj
-dotnet run --project demo/opencvsharp.demo.templatematch.avalonia/opencvsharp.demo.templatematch.avalonia.csproj
+dotnet run --project demo/opencvsharp.demo.location.avalonia/opencvsharp.demo.location.avalonia.csproj
 ```
 
 控制台演示会输出示例图与边缘检测结果。两个 Avalonia 演示会在启动时自动加载当前平台对应的 `OpenCvSharpExtern`。

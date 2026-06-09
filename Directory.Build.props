@@ -8,11 +8,12 @@
     <OpenCvSharpNativeLibraryPrefix Condition="!$([MSBuild]::IsOSPlatform('Windows'))">lib</OpenCvSharpNativeLibraryPrefix>
     <OpenCvSharpNativeLibraryFileName>$(OpenCvSharpNativeLibraryPrefix)$(OpenCvSharpNativeLibraryBaseName).$(OpenCvSharpNativeLibraryExtension)</OpenCvSharpNativeLibraryFileName>
 
-    <OpenCvSharpNativeRuntimeRid Condition="$([MSBuild]::IsOSPlatform('OSX')) and '$(PROCESSOR_ARCHITECTURE)' == 'ARM64'">osx-arm64</OpenCvSharpNativeRuntimeRid>
+    <_Arch>$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture)</_Arch>
+    <OpenCvSharpNativeRuntimeRid Condition="$([MSBuild]::IsOSPlatform('OSX')) and '$(_Arch)' == 'Arm64'">osx-arm64</OpenCvSharpNativeRuntimeRid>
     <OpenCvSharpNativeRuntimeRid Condition="$([MSBuild]::IsOSPlatform('OSX')) and '$(OpenCvSharpNativeRuntimeRid)' == ''">osx-x64</OpenCvSharpNativeRuntimeRid>
-    <OpenCvSharpNativeRuntimeRid Condition="$([MSBuild]::IsOSPlatform('Linux')) and '$(PROCESSOR_ARCHITECTURE)' == 'ARM64'">linux-arm64</OpenCvSharpNativeRuntimeRid>
+    <OpenCvSharpNativeRuntimeRid Condition="$([MSBuild]::IsOSPlatform('Linux')) and '$(_Arch)' == 'Arm64'">linux-arm64</OpenCvSharpNativeRuntimeRid>
     <OpenCvSharpNativeRuntimeRid Condition="$([MSBuild]::IsOSPlatform('Linux')) and '$(OpenCvSharpNativeRuntimeRid)' == ''">linux-x64</OpenCvSharpNativeRuntimeRid>
-    <OpenCvSharpNativeRuntimeRid Condition="$([MSBuild]::IsOSPlatform('Windows')) and '$(PROCESSOR_ARCHITECTURE)' == 'ARM64'">win-arm64</OpenCvSharpNativeRuntimeRid>
+    <OpenCvSharpNativeRuntimeRid Condition="$([MSBuild]::IsOSPlatform('Windows')) and '$(_Arch)' == 'Arm64'">win-arm64</OpenCvSharpNativeRuntimeRid>
     <OpenCvSharpNativeRuntimeRid Condition="$([MSBuild]::IsOSPlatform('Windows')) and '$(OpenCvSharpNativeRuntimeRid)' == ''">win-x64</OpenCvSharpNativeRuntimeRid>
 
     <OpenCvSharpNativeRuntimePath>$(MSBuildThisFileDirectory)build/native/$(OpenCvSharpNativeRuntimeRid)/$(OpenCvSharpNativeLibraryFileName)</OpenCvSharpNativeRuntimePath>

@@ -5,7 +5,7 @@
   <Folder Name="/Demos/">
     <Project Path="demo/opencvsharp.demo.console/opencvsharp.demo.console.csproj" />
     <Project Path="demo/opencvsharp.demo.workbench.avalonia/opencvsharp.demo.workbench.avalonia.csproj" />
-    <Project Path="demo/opencvsharp.demo.templatematch.avalonia/opencvsharp.demo.templatematch.avalonia.csproj" />
+    <Project Path="demo/opencvsharp.demo.location.avalonia/opencvsharp.demo.location.avalonia.csproj" />
   </Folder>
   <Folder Name="/Solution Items/">
     <File Path="README.md" />
