@@ -2,6 +2,7 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>OpenCvSharp.Demo.Location.Avalonia</RootNamespace>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ApplicationManifest>app.manifest</ApplicationManifest>

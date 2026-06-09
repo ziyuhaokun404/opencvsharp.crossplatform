@@ -3,7 +3,7 @@ using System.Threading.Tasks;
 using Avalonia.Platform.Storage;
 using AvaloniaWindow = Avalonia.Controls.Window;
 
-namespace OpenCvSharp.Demo.TemplateMatch.Avalonia;
+namespace OpenCvSharp.Demo.Location.Avalonia;
 
 public sealed class WindowImageFileDialogService
 {

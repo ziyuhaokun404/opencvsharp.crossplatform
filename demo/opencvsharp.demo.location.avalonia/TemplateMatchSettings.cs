@@ -1,6 +1,6 @@
 using OpenCvSharp.Core;
 
-namespace OpenCvSharp.Demo.TemplateMatch.Avalonia;
+namespace OpenCvSharp.Demo.Location.Avalonia;
 
 public sealed record TemplateMatchSettings(
     byte[] SourceImageBytes,

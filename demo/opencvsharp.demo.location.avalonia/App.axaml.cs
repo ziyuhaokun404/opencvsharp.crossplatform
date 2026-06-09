@@ -2,7 +2,7 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 
-namespace OpenCvSharp.Demo.TemplateMatch.Avalonia;
+namespace OpenCvSharp.Demo.Location.Avalonia;
 
 public partial class App : Application
 {

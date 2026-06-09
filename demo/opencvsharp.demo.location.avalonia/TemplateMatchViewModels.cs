@@ -1,7 +1,7 @@
 using OpenCvSharp;
 using OpenCvSharp.Core;
 
-namespace OpenCvSharp.Demo.TemplateMatch.Avalonia;
+namespace OpenCvSharp.Demo.Location.Avalonia;
 
 public sealed record TemplateLocatorViewModel(string Name, ITemplateLocator Locator, bool UsesTemplateMatchMethod)
 {

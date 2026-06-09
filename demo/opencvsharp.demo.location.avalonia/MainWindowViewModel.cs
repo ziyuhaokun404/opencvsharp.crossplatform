@@ -12,7 +12,7 @@ using OpenCvSharp.Core;
 using CvRect = OpenCvSharp.Rect;
 using CvSize = OpenCvSharp.Size;
 
-namespace OpenCvSharp.Demo.TemplateMatch.Avalonia;
+namespace OpenCvSharp.Demo.Location.Avalonia;
 
 public sealed partial class MainWindowViewModel : ObservableObject
 {

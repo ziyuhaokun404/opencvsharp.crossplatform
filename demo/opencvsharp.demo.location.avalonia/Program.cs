@@ -1,7 +1,7 @@
 using Avalonia;
 using System;
 
-namespace OpenCvSharp.Demo.TemplateMatch.Avalonia;
+namespace OpenCvSharp.Demo.Location.Avalonia;
 
 internal static class Program
 {

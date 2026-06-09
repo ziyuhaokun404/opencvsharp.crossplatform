@@ -12,7 +12,7 @@ using AvaloniaPoint = Avalonia.Point;
 using AvaloniaRect = Avalonia.Rect;
 using AvaloniaWindow = Avalonia.Controls.Window;
 
-namespace OpenCvSharp.Demo.TemplateMatch.Avalonia;
+namespace OpenCvSharp.Demo.Location.Avalonia;
 
 /// <summary>
 /// 详细性能分析结果，包含 wall-clock 计时和 GC 分配指标。

@@ -15,7 +15,7 @@ using AvaloniaPoint = Avalonia.Point;
 using AvaloniaWindow = Avalonia.Controls.Window;
 using Cv2 = OpenCvSharp.Cv2;
 
-namespace OpenCvSharp.Demo.TemplateMatch.Avalonia;
+namespace OpenCvSharp.Demo.Location.Avalonia;
 
 public partial class MainWindow : AvaloniaWindow
 {

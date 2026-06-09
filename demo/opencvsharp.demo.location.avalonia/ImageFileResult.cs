@@ -1,3 +1,3 @@
-namespace OpenCvSharp.Demo.TemplateMatch.Avalonia;
+namespace OpenCvSharp.Demo.Location.Avalonia;
 
 public sealed record ImageFileResult(string Path, byte[] Bytes);

@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using System.Text.Json;
 
-namespace OpenCvSharp.Demo.TemplateMatch.Avalonia;
+namespace OpenCvSharp.Demo.Location.Avalonia;
 
 public sealed class TemplateMatchSettingsStore
 {
@@ -13,7 +13,7 @@ public sealed class TemplateMatchSettingsStore
     {
         var settingsDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "OpenCvSharp.Demo.TemplateMatch.Avalonia");
+            "OpenCvSharp.Demo.Location.Avalonia");
         settingsPath = Path.Combine(settingsDirectory, "settings.json");
     }
 

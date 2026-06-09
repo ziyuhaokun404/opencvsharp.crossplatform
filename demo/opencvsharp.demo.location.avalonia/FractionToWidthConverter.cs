@@ -2,7 +2,7 @@ using System;
 using System.Globalization;
 using Avalonia.Data.Converters;
 
-namespace OpenCvSharp.Demo.TemplateMatch.Avalonia;
+namespace OpenCvSharp.Demo.Location.Avalonia;
 
 /// <summary>
 /// Converts a fraction (0.0–1.0) to a pixel width for proportional bar display.

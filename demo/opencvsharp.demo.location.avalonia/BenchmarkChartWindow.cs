@@ -9,7 +9,7 @@ using AvaloniaPoint = Avalonia.Point;
 using AvaloniaRect = Avalonia.Rect;
 using AvaloniaWindow = Avalonia.Controls.Window;
 
-namespace OpenCvSharp.Demo.TemplateMatch.Avalonia;
+namespace OpenCvSharp.Demo.Location.Avalonia;
 
 public sealed class BenchmarkChartWindow : AvaloniaWindow
 {

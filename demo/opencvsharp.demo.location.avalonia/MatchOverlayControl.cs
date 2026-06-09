@@ -3,7 +3,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 
-namespace OpenCvSharp.Demo.TemplateMatch.Avalonia;
+namespace OpenCvSharp.Demo.Location.Avalonia;
 
 /// <summary>
 /// 高性能匹配结果叠加层：使用 DrawingContext 直接绘制所有矩形，

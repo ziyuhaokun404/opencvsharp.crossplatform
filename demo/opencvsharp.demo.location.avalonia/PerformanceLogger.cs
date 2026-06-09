@@ -5,7 +5,7 @@ using System.Threading.Channels;
 using System.Threading.Tasks;
 using OpenCvSharp.Core;
 
-namespace OpenCvSharp.Demo.TemplateMatch.Avalonia;
+namespace OpenCvSharp.Demo.Location.Avalonia;
 
 /// <summary>
 /// Async file logger with non-blocking write queue, identical to WorkbenchLogger pattern.
@@ -23,7 +23,7 @@ internal sealed class PerformanceLogger : IDisposable
     {
         logDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "OpenCvSharp.Demo.TemplateMatch.Avalonia",
+            "OpenCvSharp.Demo.Location.Avalonia",
             "logs");
         Directory.CreateDirectory(logDirectory);
         CleanupOldLogs();
