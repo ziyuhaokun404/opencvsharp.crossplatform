@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="${ROOT_DIR}/build/opencvsharp-extern-4.13"
-SOURCE_DIR="${ROOT_DIR}/src/opencvsharp-4.13/src"
+SOURCE_DIR="${ROOT_DIR}/ref/opencvsharp-4.13/src"
 OPEN_CV_DIR_DEFAULT="/opt/homebrew/Cellar/opencv/4.13.0_10/lib/cmake/opencv4"
 OPEN_CV_DIR="${OpenCV_DIR:-${OPEN_CV_DIR_DEFAULT}}"
 ARCHITECTURES="${CMAKE_OSX_ARCHITECTURES:-arm64}"

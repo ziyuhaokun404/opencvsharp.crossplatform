@@ -74,4 +74,4 @@ if(NO_VIDEOIO)
     add_compile_definitions(NO_VIDEOIO)
 endif()
 
-add_subdirectory(OpenCvSharpExtern)
+add_subdirectory(opencvsharpextern)

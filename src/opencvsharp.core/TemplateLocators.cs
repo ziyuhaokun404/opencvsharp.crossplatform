@@ -5,7 +5,7 @@ using System.Linq;
 using System.Runtime.Intrinsics;
 using OpenCvSharp;
 
-namespace OpenCvSharp.TemplateMatching;
+namespace OpenCvSharp.Core;
 
 public interface ITemplateLocator
 {

@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:OpenCvSharp.Demo.TemplateMatch.Avalonia"
-        xmlns:matching="using:OpenCvSharp.TemplateMatching"
+        xmlns:matching="using:OpenCvSharp.Core"
         x:Class="OpenCvSharp.Demo.TemplateMatch.Avalonia.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Width="1280"

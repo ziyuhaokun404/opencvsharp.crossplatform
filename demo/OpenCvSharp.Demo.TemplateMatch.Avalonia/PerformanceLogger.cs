@@ -3,7 +3,7 @@ using System.Globalization;
 using System.IO;
 using System.Threading.Channels;
 using System.Threading.Tasks;
-using OpenCvSharp.TemplateMatching;
+using OpenCvSharp.Core;
 
 namespace OpenCvSharp.Demo.TemplateMatch.Avalonia;
 

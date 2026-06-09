@@ -1,5 +1,5 @@
 using OpenCvSharp;
-using OpenCvSharp.TemplateMatching;
+using OpenCvSharp.Core;
 
 namespace OpenCvSharp.Demo.TemplateMatch.Avalonia;
 

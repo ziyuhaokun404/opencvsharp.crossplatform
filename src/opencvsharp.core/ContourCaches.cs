@@ -2,7 +2,7 @@ using System;
 using System.Runtime.CompilerServices;
 using OpenCvSharp;
 
-namespace OpenCvSharp.TemplateMatching;
+namespace OpenCvSharp.Core;
 
 internal sealed class ContourPyramidCache : IDisposable
 {

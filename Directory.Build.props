@@ -16,8 +16,6 @@
     <OpenCvSharpNativeRuntimeRid Condition="$([MSBuild]::IsOSPlatform('Windows')) and '$(OpenCvSharpNativeRuntimeRid)' == ''">win-x64</OpenCvSharpNativeRuntimeRid>
 
     <OpenCvSharpNativeRuntimePath>$(MSBuildThisFileDirectory)build/native/$(OpenCvSharpNativeRuntimeRid)/$(OpenCvSharpNativeLibraryFileName)</OpenCvSharpNativeRuntimePath>
-    <OpenCvSharpNativeLegacyMacOsRuntimePath Condition="$([MSBuild]::IsOSPlatform('OSX'))">$(MSBuildThisFileDirectory)build/opencvsharp-extern-4.13/OpenCvSharpExtern/libOpenCvSharpExtern.dylib</OpenCvSharpNativeLegacyMacOsRuntimePath>
     <OpenCvSharpNativeResolvedPath Condition="Exists('$(OpenCvSharpNativeRuntimePath)')">$(OpenCvSharpNativeRuntimePath)</OpenCvSharpNativeResolvedPath>
-    <OpenCvSharpNativeResolvedPath Condition="'$(OpenCvSharpNativeResolvedPath)' == '' and Exists('$(OpenCvSharpNativeLegacyMacOsRuntimePath)')">$(OpenCvSharpNativeLegacyMacOsRuntimePath)</OpenCvSharpNativeResolvedPath>
   </PropertyGroup>
 </Project>

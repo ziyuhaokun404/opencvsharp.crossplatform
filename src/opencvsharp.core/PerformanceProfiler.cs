@@ -4,7 +4,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 
-namespace OpenCvSharp.TemplateMatching;
+namespace OpenCvSharp.Core;
 
 /// <summary>
 /// Captures sub-millisecond step timings within a single algorithm run.

@@ -2,10 +2,11 @@
 
 本工作区包含：
 
-- `src/OpenCvSharp.TemplateMatching`：模板匹配库
-- `demo/OpenCvSharp.Demo.Console`：控制台演示
-- `demo/OpenCvSharp.Demo.Workbench.Avalonia`：图像处理工作台
-- `demo/OpenCvSharp.Demo.TemplateMatch.Avalonia`：模板匹配可视化演示
+- `src/opencvsharp.core`：算法封装库（模板匹配、轮廓分析等）
+- `ref/opencvsharp-4.13`：OpenCvSharp 原生 C++ 源码（用于构建 `OpenCvSharpExtern`）
+- `demo/opencvsharp.demo.console`：控制台演示
+- `demo/opencvsharp.demo.workbench.avalonia`：图像处理工作台
+- `demo/opencvsharp.demo.templatematch.avalonia`：模板匹配可视化演示
 
 目标是把 OpenCvSharp 的 .NET 演示和本地原生运行时解耦，让项目本身保持跨平台，而平台差异只留在原生库构建和分发环节。
 
@@ -34,11 +35,6 @@ build/native/win-x64/OpenCvSharpExtern.dll
 
 构建时会自动把对应平台的原生库复制到应用输出目录。运行时也支持通过环境变量 `OPENCVSHARP_EXTERN_PATH` 显式指定原生库路径。
 
-为了兼容当前 macOS 的旧构建目录，项目仍然接受这个历史路径：
-
-```text
-build/opencvsharp-extern-4.13/OpenCvSharpExtern/libOpenCvSharpExtern.dylib
-```
 
 ## 平台脚本约定
 
@@ -67,24 +63,18 @@ scripts/stage-native-runtime.sh osx-arm64
 
 它会把原生库复制到新的通用目录 `build/native/osx-arm64/`。
 
-如果需要制作 macOS 自包含原生包，仍可使用：
+如果需要制作 macOS 自包含原生包：
 
 ```bash
 scripts/bundle-native-runtime-macos.sh
 ```
 
-旧脚本名 `scripts/make-macos-native-bundle.sh` 仍然保留，作为兼容入口。
-
 ## 运行演示
 
 ```bash
-dotnet run --project demo/OpenCvSharp.Demo.Console/OpenCvSharp.Demo.Console.csproj
-dotnet run --project demo/OpenCvSharp.Demo.Workbench.Avalonia/OpenCvSharp.Demo.Workbench.Avalonia.csproj
-dotnet run --project demo/OpenCvSharp.Demo.TemplateMatch.Avalonia/OpenCvSharp.Demo.TemplateMatch.Avalonia.csproj
+dotnet run --project demo/opencvsharp.demo.console/opencvsharp.demo.console.csproj
+dotnet run --project demo/opencvsharp.demo.workbench.avalonia/opencvsharp.demo.workbench.avalonia.csproj
+dotnet run --project demo/opencvsharp.demo.templatematch.avalonia/opencvsharp.demo.templatematch.avalonia.csproj
 ```
 
 控制台演示会输出示例图与边缘检测结果。两个 Avalonia 演示会在启动时自动加载当前平台对应的 `OpenCvSharpExtern`。
-
-## 架构文档
-
-本项目已生成 AI 辅助架构文档，入口见 [docs-ai/00-index.md](docs-ai/00-index.md)。

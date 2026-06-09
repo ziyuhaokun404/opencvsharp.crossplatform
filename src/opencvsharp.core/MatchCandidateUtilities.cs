@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using OpenCvSharp;
 
-namespace OpenCvSharp.TemplateMatching;
+namespace OpenCvSharp.Core;
 
 public static class MatchCandidateUtilities
 {

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using OpenCvSharp;
 
-namespace OpenCvSharp.TemplateMatching;
+namespace OpenCvSharp.Core;
 
 public sealed class CoarseToFineMatchTemplateLocator : ITemplateLocator
 {

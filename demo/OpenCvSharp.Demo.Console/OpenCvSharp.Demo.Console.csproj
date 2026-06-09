@@ -13,7 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="../OpenCvSharp.Demo.Shared/OpenCvSharpNativeRuntime.cs"
+    <Compile Include="../opencvsharp.demo.shared/OpenCvSharpNativeRuntime.cs"
              Link="OpenCvSharpNativeRuntime.cs" />
   </ItemGroup>
 

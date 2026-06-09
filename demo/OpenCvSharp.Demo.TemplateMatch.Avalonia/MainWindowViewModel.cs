@@ -8,7 +8,7 @@ using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using OpenCvSharp;
-using OpenCvSharp.TemplateMatching;
+using OpenCvSharp.Core;
 using CvRect = OpenCvSharp.Rect;
 using CvSize = OpenCvSharp.Size;
 

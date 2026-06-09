@@ -7,7 +7,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
-using OpenCvSharp.TemplateMatching;
+using OpenCvSharp.Core;
 using AvaloniaPoint = Avalonia.Point;
 using AvaloniaRect = Avalonia.Rect;
 using AvaloniaWindow = Avalonia.Controls.Window;
