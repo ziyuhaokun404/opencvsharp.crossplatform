@@ -272,7 +272,7 @@ public static class MatchCandidateUtilities
         return ((long)cx << 32) | (uint)cy;
     }
 
-    private static double CalculateIntersectionOverUnion(Rect a, Rect b)
+    internal static double CalculateIntersectionOverUnion(Rect a, Rect b)
     {
         var intersection = a.Intersect(b);
         if (intersection.Width <= 0 || intersection.Height <= 0)

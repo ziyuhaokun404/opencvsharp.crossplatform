@@ -38,8 +38,8 @@ public sealed class MatchTemplateLocator : ITemplateLocator
         var stopwatch = Stopwatch.StartNew();
 
         // 仅灰度转换时分配新 Mat；彩色模式直接使用原 Mat，不 Clone
-        using var graySource = options.UseGrayscale ? ConvertToGray(source) : null;
-        using var grayTemplate = options.UseGrayscale ? ConvertToGray(template) : null;
+        using var graySource = options.UseGrayscale ? ImageHelpers.ConvertToGray(source) : null;
+        using var grayTemplate = options.UseGrayscale ? ImageHelpers.ConvertToGray(template) : null;
         var matchSource = graySource ?? source;
         var matchTemplate = grayTemplate ?? template;
         profile.Step("PrepareForMatching", options.UseGrayscale ? "灰度" : "直接（无 Clone）");
@@ -136,13 +136,6 @@ public sealed class MatchTemplateLocator : ITemplateLocator
             scale = (double)MinTemplateEdge / minDim;
 
         return Math.Min(scale, 1.0);
-    }
-
-    private static Mat ConvertToGray(Mat source)
-    {
-        var gray = new Mat();
-        Cv2.CvtColor(source, gray, ColorConversionCodes.BGR2GRAY);
-        return gray;
     }
 
     /// <summary>
@@ -880,7 +873,7 @@ public sealed class ContourTemplateLocator : ITemplateLocator
             var isDuplicate = false;
             for (var i = 0; i < selected.Count; i++)
             {
-                if (CalculateIntersectionOverUnion(descriptor.Bounds, selected[i].Bounds) > DuplicateBoundsOverlapThreshold)
+                if (MatchCandidateUtilities.CalculateIntersectionOverUnion(descriptor.Bounds, selected[i].Bounds) > DuplicateBoundsOverlapThreshold)
                 {
                     isDuplicate = true;
                     break;
@@ -929,65 +922,9 @@ public sealed class ContourTemplateLocator : ITemplateLocator
         return verified;
     }
 
-    private static Mat PrepareGrayForVerification(Mat image)
-    {
-        var gray = new Mat();
-        if (image.Channels() == 1)
-            image.CopyTo(gray);
-        else
-            Cv2.CvtColor(image, gray, ColorConversionCodes.BGR2GRAY);
-
-        Cv2.GaussianBlur(gray, gray, new Size(3, 3), 0);
-        return gray;
-    }
-
     private static double CalculateIntensityVerificationThreshold(double threshold)
     {
         return Math.Clamp(threshold * 0.72, 0.42, 0.82);
-    }
-
-    private static List<MatchCandidate> FindEdgeResponseMatches(
-        Mat sourceEdges,
-        Mat templateEdges,
-        TemplateContourProfile template,
-        double threshold,
-        ContourExtractionSettings settings,
-        PerformanceProfile? profile = null)
-    {
-        var edgeCount = Cv2.CountNonZero(templateEdges);
-        if (edgeCount == 0)
-            return [];
-
-        using var invertedSourceEdges = new Mat();
-        Cv2.BitwiseNot(sourceEdges, invertedSourceEdges);
-        using var distance = new Mat();
-        Cv2.DistanceTransform(invertedSourceEdges, distance, DistanceTypes.L2, DistanceTransformMasks.Mask3);
-        profile?.Step("DistanceTransform");
-
-        using var templateMask = new Mat();
-        templateEdges.ConvertTo(templateMask, MatType.CV_32F, 1.0 / 255.0);
-        using var distanceSum = new Mat();
-        Cv2.MatchTemplate(distance, templateMask, distanceSum, TemplateMatchModes.CCorr);
-        profile?.Step("MatchTemplate(距离)");
-
-        using var sourceEdgeKernel = Cv2.GetStructuringElement(MorphShapes.Rect, new Size(3, 3));
-        using var expandedSourceEdges = new Mat();
-        Cv2.Dilate(sourceEdges, expandedSourceEdges, sourceEdgeKernel);
-        using var sourceMask = new Mat();
-        expandedSourceEdges.ConvertTo(sourceMask, MatType.CV_32F, 1.0 / 255.0);
-        using var hitSum = new Mat();
-        Cv2.MatchTemplate(sourceMask, templateMask, hitSum, TemplateMatchModes.CCorr);
-        profile?.Step("MatchTemplate(命中)");
-
-        return ExtractEdgeResponseCandidatesOptimized(
-            distanceSum,
-            hitSum,
-            edgeCount,
-            template.TemplateSize,
-            threshold,
-            settings.MinimumTemplateContourCoverage,
-            settings.EdgeDistanceTolerance,
-            profile);
     }
 
     /// <summary>
@@ -1101,17 +1038,6 @@ public sealed class ContourTemplateLocator : ITemplateLocator
         if (matches.Count > 3000)
             matches.RemoveRange(3000, matches.Count - 3000);
         return matches;
-    }
-
-    private static double CalculateIntersectionOverUnion(Rect a, Rect b)
-    {
-        var intersection = a.Intersect(b);
-        if (intersection.Width <= 0 || intersection.Height <= 0)
-            return 0;
-
-        var intersectionArea = intersection.Width * intersection.Height;
-        var unionArea = a.Width * a.Height + b.Width * b.Height - intersectionArea;
-        return unionArea <= 0 ? 0 : (double)intersectionArea / unionArea;
     }
 
 }

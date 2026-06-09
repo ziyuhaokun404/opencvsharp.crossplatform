@@ -22,8 +22,8 @@ public sealed class CoarseToFineMatchTemplateLocator : ITemplateLocator
         var profile = new PerformanceProfile($"粗到细模板匹配 ({source.Width}×{source.Height}, 模板 {template.Width}×{template.Height})");
         var stopwatch = Stopwatch.StartNew();
 
-        using var graySource = options.UseGrayscale ? ConvertToGray(source) : null;
-        using var grayTemplate = options.UseGrayscale ? ConvertToGray(template) : null;
+        using var graySource = options.UseGrayscale ? ImageHelpers.ConvertToGray(source) : null;
+        using var grayTemplate = options.UseGrayscale ? ImageHelpers.ConvertToGray(template) : null;
         var matchSource = graySource ?? source;
         var matchTemplate = grayTemplate ?? template;
         profile.Step("PrepareForMatching", options.UseGrayscale ? "灰度" : "直接（无 Clone）");
@@ -122,13 +122,6 @@ public sealed class CoarseToFineMatchTemplateLocator : ITemplateLocator
             scale = minEdgeScale;
 
         return Math.Min(scale, 1.0);
-    }
-
-    private static Mat ConvertToGray(Mat source)
-    {
-        var gray = new Mat();
-        Cv2.CvtColor(source, gray, ColorConversionCodes.BGR2GRAY);
-        return gray;
     }
 
     private static unsafe List<CoarseCandidate> SelectCoarseCandidates(
