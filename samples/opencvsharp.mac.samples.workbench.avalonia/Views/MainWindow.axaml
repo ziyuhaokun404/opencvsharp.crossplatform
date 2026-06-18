@@ -1,7 +1,8 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:vm="using:OpenCvSharp.Mac.Samples.Workbench.Avalonia"
-        x:Class="OpenCvSharp.Mac.Samples.Workbench.Avalonia.MainWindow"
+        xmlns:vm="using:OpenCvSharp.Mac.Samples.Workbench.Avalonia.ViewModels"
+        xmlns:models="using:OpenCvSharp.Mac.Samples.Workbench.Avalonia.ViewModels.Models"
+        x:Class="OpenCvSharp.Mac.Samples.Workbench.Avalonia.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Width="1480"
         Height="940"
@@ -263,7 +264,7 @@
                      ItemsSource="{Binding Assets}"
                      SelectedItem="{Binding SelectedAsset, Mode=TwoWay}">
               <ListBox.ItemTemplate>
-                <DataTemplate x:DataType="vm:ImageAssetViewModel">
+                <DataTemplate x:DataType="models:ImageAssetViewModel">
                   <Grid ColumnDefinitions="3,*" Margin="0,1">
                     <Border Width="3" CornerRadius="2" Background="{DynamicResource PrimaryBrush}" />
                     <StackPanel Grid.Column="1" Margin="8,6" Spacing="2">
@@ -382,7 +383,7 @@
                        ItemsSource="{Binding FilteredOperators}"
                        SelectedItem="{Binding SelectedOperator, Mode=TwoWay}">
                 <ListBox.ItemTemplate>
-                  <DataTemplate x:DataType="vm:OperatorViewModel">
+                  <DataTemplate x:DataType="models:OperatorViewModel">
                     <Border Margin="0,0,0,8" Padding="10" CornerRadius="8" Background="{DynamicResource CardSurfaceBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
                       <Grid ColumnDefinitions="3,*,Auto">
                         <Border Width="3" CornerRadius="2" Background="{DynamicResource PrimaryBrush}" />
@@ -528,7 +529,7 @@
             </ItemsPanelTemplate>
           </ListBox.ItemsPanel>
           <ListBox.ItemTemplate>
-            <DataTemplate x:DataType="vm:PipelineNodeViewModel">
+            <DataTemplate x:DataType="models:PipelineNodeViewModel">
               <Grid ColumnDefinitions="184,34">
                 <Border Margin="20 0 0 0" Padding="{Binding CardPadding}" Width="184" Height="{Binding CardHeight}" CornerRadius="8" Background="{DynamicResource CardSurfaceBrush}" BorderBrush="{Binding CardBorderBrush}" BorderThickness="{Binding CardBorderThickness}">
                   <Grid RowDefinitions="Auto,*,Auto" ColumnDefinitions="4,*">

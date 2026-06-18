@@ -5,8 +5,11 @@ using System.Linq;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 
-namespace OpenCvSharp.Mac.Samples.Workbench.Avalonia;
+namespace OpenCvSharp.Mac.Samples.Workbench.Avalonia.Services;
 
+/// <summary>
+/// 工作台日志服务，使用异步写入队列。
+/// </summary>
 internal sealed class WorkbenchLogger : IDisposable
 {
     private const int RetentionDays = 14;
