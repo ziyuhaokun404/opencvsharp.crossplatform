@@ -2,11 +2,12 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SOURCE_DYLIB="${ROOT_DIR}/build/opencvsharp-extern-4.13/OpenCvSharpExtern/libOpenCvSharpExtern.dylib"
+SOURCE_DYLIB="${OPENCVSHARP_EXTERN_PATH:-${ROOT_DIR}/build/opencvsharp-extern-4.13/opencvsharpextern/libOpenCvSharpExtern.dylib}"
 BUNDLE_DIR="${ROOT_DIR}/build/opencvsharp-extern-4.13-self-contained"
 
 if [[ ! -f "${SOURCE_DYLIB}" ]]; then
   echo "Missing native library: ${SOURCE_DYLIB}" >&2
+  echo "Set OPENCVSHARP_EXTERN_PATH if your output is elsewhere." >&2
   exit 1
 fi
 

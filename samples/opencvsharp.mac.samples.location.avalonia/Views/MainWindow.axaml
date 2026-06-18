@@ -1,8 +1,10 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:vm="using:OpenCvSharp.Mac.Samples.Location.Avalonia"
+        xmlns:vm="using:OpenCvSharp.Mac.Samples.Location.Avalonia.ViewModels"
         xmlns:matching="using:OpenCvSharp.Mac.Core"
-        x:Class="OpenCvSharp.Mac.Samples.Location.Avalonia.MainWindow"
+        xmlns:conv="using:OpenCvSharp.Mac.Samples.Location.Avalonia.Converters"
+        xmlns:ctrl="using:OpenCvSharp.Mac.Samples.Location.Avalonia.Controls"
+        x:Class="OpenCvSharp.Mac.Samples.Location.Avalonia.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Width="1280"
         Height="820"
@@ -476,7 +478,7 @@
                                     Background="{DynamicResource PrimaryBrush}"
                                     Opacity="0.6"
                                     HorizontalAlignment="Left"
-                                    Width="{Binding BarFraction, Converter={x:Static vm:FractionToWidthConverter.Instance}}" />
+                                    Width="{Binding BarFraction, Converter={x:Static conv:FractionToWidthConverter.Instance}}" />
                           </Border>
                           <TextBlock Grid.Column="1"
                                      Text="{Binding Detail}"
@@ -595,7 +597,7 @@
                    Source="{Binding SourceImageSource}"
                    Stretch="Fill" />
           </Canvas>
-          <vm:MatchOverlayControl Name="MatchOverlayLayer" IsHitTestVisible="False" />
+          <ctrl:MatchOverlayControl Name="MatchOverlayLayer" IsHitTestVisible="False" />
           <Canvas Name="SourceRoiLayer" IsVisible="False" Background="Transparent">
             <Canvas Name="SourceRoiAdorner" Width="160" Height="100" RenderTransformOrigin="0.5,0.5">
               <Canvas.RenderTransform>

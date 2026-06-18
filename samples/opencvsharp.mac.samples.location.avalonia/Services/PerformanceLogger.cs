@@ -5,7 +5,7 @@ using System.Threading.Channels;
 using System.Threading.Tasks;
 using OpenCvSharp.Mac.Core;
 
-namespace OpenCvSharp.Mac.Samples.Location.Avalonia;
+namespace OpenCvSharp.Mac.Samples.Location.Avalonia.Services;
 
 /// <summary>
 /// Async file logger with non-blocking write queue, identical to WorkbenchLogger pattern.

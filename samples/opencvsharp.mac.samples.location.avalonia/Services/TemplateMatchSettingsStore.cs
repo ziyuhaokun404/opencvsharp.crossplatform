@@ -1,8 +1,9 @@
 using System;
 using System.IO;
 using System.Text.Json;
+using OpenCvSharp.Mac.Samples.Location.Avalonia.ViewModels.Models;
 
-namespace OpenCvSharp.Mac.Samples.Location.Avalonia;
+namespace OpenCvSharp.Mac.Samples.Location.Avalonia.Services;
 
 public sealed class TemplateMatchSettingsStore
 {

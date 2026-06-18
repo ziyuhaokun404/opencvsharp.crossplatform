@@ -2,8 +2,9 @@ using System.Collections.Generic;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
+using OpenCvSharp.Mac.Samples.Location.Avalonia.ViewModels.Models;
 
-namespace OpenCvSharp.Mac.Samples.Location.Avalonia;
+namespace OpenCvSharp.Mac.Samples.Location.Avalonia.Controls;
 
 /// <summary>
 /// 高性能匹配结果叠加层：使用 DrawingContext 直接绘制所有矩形，

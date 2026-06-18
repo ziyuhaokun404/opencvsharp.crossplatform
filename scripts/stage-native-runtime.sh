@@ -12,7 +12,7 @@ case "${ARCH}" in
 esac
 
 LIB_NAME="libOpenCvSharpExtern.dylib"
-DEFAULT_SOURCE="${ROOT_DIR}/build/opencvsharp-extern-4.13/OpenCvSharpExtern/${LIB_NAME}"
+DEFAULT_SOURCE="${ROOT_DIR}/build/opencvsharp-extern-4.13/opencvsharpextern/${LIB_NAME}"
 SOURCE_PATH="${2:-${OPENCVSHARP_EXTERN_PATH:-${DEFAULT_SOURCE}}}"
 TARGET_DIR="${ROOT_DIR}/build/native/${RID}"
 TARGET_PATH="${TARGET_DIR}/${LIB_NAME}"

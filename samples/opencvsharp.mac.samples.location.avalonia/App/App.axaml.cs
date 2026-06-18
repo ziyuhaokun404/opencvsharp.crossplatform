@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using OpenCvSharp.Mac.Samples.Location.Avalonia.Views;
 
 namespace OpenCvSharp.Mac.Samples.Location.Avalonia;
 

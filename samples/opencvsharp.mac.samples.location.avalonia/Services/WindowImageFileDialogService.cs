@@ -2,8 +2,9 @@ using System.IO;
 using System.Threading.Tasks;
 using Avalonia.Platform.Storage;
 using AvaloniaWindow = Avalonia.Controls.Window;
+using OpenCvSharp.Mac.Samples.Location.Avalonia.ViewModels.Models;
 
-namespace OpenCvSharp.Mac.Samples.Location.Avalonia;
+namespace OpenCvSharp.Mac.Samples.Location.Avalonia.Services;
 
 public sealed class WindowImageFileDialogService
 {

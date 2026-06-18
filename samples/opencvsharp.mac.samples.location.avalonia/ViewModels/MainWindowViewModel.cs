@@ -11,8 +11,11 @@ using OpenCvSharp;
 using OpenCvSharp.Mac.Core;
 using CvRect = OpenCvSharp.Rect;
 using CvSize = OpenCvSharp.Size;
+using OpenCvSharp.Mac.Samples.Location.Avalonia.Services;
+using OpenCvSharp.Mac.Samples.Location.Avalonia.ViewModels.Models;
+using OpenCvSharp.Mac.Samples.Location.Avalonia.Views;
 
-namespace OpenCvSharp.Mac.Samples.Location.Avalonia;
+namespace OpenCvSharp.Mac.Samples.Location.Avalonia.ViewModels;
 
 public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 {

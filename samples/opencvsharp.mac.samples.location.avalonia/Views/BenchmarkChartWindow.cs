@@ -8,8 +8,9 @@ using Avalonia.Media;
 using AvaloniaPoint = Avalonia.Point;
 using AvaloniaRect = Avalonia.Rect;
 using AvaloniaWindow = Avalonia.Controls.Window;
+using OpenCvSharp.Mac.Samples.Location.Avalonia.ViewModels.Models;
 
-namespace OpenCvSharp.Mac.Samples.Location.Avalonia;
+namespace OpenCvSharp.Mac.Samples.Location.Avalonia.Views;
 
 public sealed class BenchmarkChartWindow : AvaloniaWindow
 {

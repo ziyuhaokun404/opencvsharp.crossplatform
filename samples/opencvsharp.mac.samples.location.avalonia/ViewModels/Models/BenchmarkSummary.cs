@@ -4,7 +4,7 @@ using System.Linq;
 using OpenCvSharp;
 using OpenCvSharp.Mac.Core;
 
-namespace OpenCvSharp.Mac.Samples.Location.Avalonia;
+namespace OpenCvSharp.Mac.Samples.Location.Avalonia.ViewModels.Models;
 
 public sealed record BenchmarkSummary(
     IReadOnlyList<double> RunTimingsMs,

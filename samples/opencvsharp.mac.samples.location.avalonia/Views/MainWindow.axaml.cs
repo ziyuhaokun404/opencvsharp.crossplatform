@@ -10,12 +10,14 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
 using OpenCvSharp;
+using OpenCvSharp.Mac.Samples.Location.Avalonia.Services;
+using OpenCvSharp.Mac.Samples.Location.Avalonia.ViewModels;
 using OpenCvSharp.Mac.Samples.Shared;
 using AvaloniaPoint = Avalonia.Point;
 using AvaloniaWindow = Avalonia.Controls.Window;
 using Cv2 = OpenCvSharp.Cv2;
 
-namespace OpenCvSharp.Mac.Samples.Location.Avalonia;
+namespace OpenCvSharp.Mac.Samples.Location.Avalonia.Views;
 
 public partial class MainWindow : AvaloniaWindow
 {

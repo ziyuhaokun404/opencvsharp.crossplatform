@@ -29,6 +29,12 @@ brew install cmake pkg-config opencv
 scripts/build-native-runtime-macos.sh
 ```
 
+脚本默认通过 `brew --prefix opencv` 查找 OpenCV；如果 OpenCV 安装在其他位置，可以显式传入：
+
+```bash
+OpenCV_DIR=/path/to/opencv4/cmake scripts/build-native-runtime-macos.sh
+```
+
 构建后执行：
 
 ```bash
