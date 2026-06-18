@@ -1,11 +1,12 @@
 <Solution>
   <Folder Name="/Libraries/">
-    <Project Path="src/opencvsharp.core/opencvsharp.core.csproj" />
+    <Project Path="src/opencvsharp.mac.core/opencvsharp.mac.core.csproj" />
   </Folder>
-  <Folder Name="/Demos/">
-    <Project Path="demo/opencvsharp.demo.console/opencvsharp.demo.console.csproj" />
-    <Project Path="demo/opencvsharp.demo.workbench.avalonia/opencvsharp.demo.workbench.avalonia.csproj" />
-    <Project Path="demo/opencvsharp.demo.location.avalonia/opencvsharp.demo.location.avalonia.csproj" />
+  <Folder Name="/Samples/">
+    <Project Path="samples/opencvsharp.mac.samples.shared/opencvsharp.mac.samples.shared.csproj" />
+    <Project Path="samples/opencvsharp.mac.samples.console/opencvsharp.mac.samples.console.csproj" />
+    <Project Path="samples/opencvsharp.mac.samples.workbench.avalonia/opencvsharp.mac.samples.workbench.avalonia.csproj" />
+    <Project Path="samples/opencvsharp.mac.samples.location.avalonia/opencvsharp.mac.samples.location.avalonia.csproj" />
   </Folder>
   <Folder Name="/Solution Items/">
     <File Path="README.md" />
