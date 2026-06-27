@@ -34,7 +34,12 @@ public sealed class PipelineRunner
 
                 var op = operatorRegistry.FindById(step.OperatorId) ?? operatorRegistry.FindByName(step.OperatorName);
                 if (op is null)
-                    throw new InvalidOperationException($"未知算子：{step.OperatorName}");
+                {
+                    var ex = new InvalidOperationException($"未知算子：{step.OperatorName}");
+                    stepResults.Add(new PipelineStepResult(step.Id, step.OperatorName, false, TimeSpan.Zero, ex.Message));
+                    result.Dispose();
+                    return new PipelineRunResult(null, stepResults, step.Id, i, ex);
+                }
 
                 var stopwatch = Stopwatch.StartNew();
                 Mat processed;

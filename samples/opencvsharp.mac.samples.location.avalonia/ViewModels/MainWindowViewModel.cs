@@ -247,6 +247,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         ReplaceSourceImage(null);
         ReplaceTemplateImage(null);
         InvalidateImageCache();
+        foreach (var algorithm in Algorithms)
+        {
+            if (algorithm.Locator is IDisposable locator)
+                locator.Dispose();
+        }
+
         logger.Dispose();
     }
 
