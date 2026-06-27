@@ -36,6 +36,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private Bitmap? outputBitmap;
     private byte[]? outputBytes;
     private int failedPipelineStepIndex = -1;
+    private Guid? inspectorEditStepId;
+    private List<PipelineStep>? inspectorEditBaseline;
+    private bool inspectorEditUndoPushed;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(InputImageSource))]
@@ -46,14 +49,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [NotifyPropertyChangedFor(nameof(ParamAMaximum))]
     [NotifyPropertyChangedFor(nameof(ParamBMinimum))]
     [NotifyPropertyChangedFor(nameof(ParamBMaximum))]
-    [NotifyPropertyChangedFor(nameof(IsBorderModeParameterVisible))]
-    [NotifyPropertyChangedFor(nameof(IsInterpolationParameterVisible))]
+    [NotifyPropertyChangedFor(nameof(IsParamBOptionsVisible))]
     [NotifyPropertyChangedFor(nameof(IsStandardParamBVisible))]
-    [NotifyPropertyChangedFor(nameof(IsBorderModeConstant))]
-    [NotifyPropertyChangedFor(nameof(IsBorderModeReflect))]
-    [NotifyPropertyChangedFor(nameof(IsInterpolationNearest))]
-    [NotifyPropertyChangedFor(nameof(IsInterpolationLinear))]
-    [NotifyPropertyChangedFor(nameof(IsInterpolationCubic))]
     private OperatorViewModel? selectedOperator;
 
     [ObservableProperty]
@@ -103,14 +100,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ParamBMinimum))]
     [NotifyPropertyChangedFor(nameof(ParamBMaximum))]
-    [NotifyPropertyChangedFor(nameof(IsBorderModeParameterVisible))]
-    [NotifyPropertyChangedFor(nameof(IsInterpolationParameterVisible))]
+    [NotifyPropertyChangedFor(nameof(IsParamBOptionsVisible))]
     [NotifyPropertyChangedFor(nameof(IsStandardParamBVisible))]
-    [NotifyPropertyChangedFor(nameof(IsBorderModeConstant))]
-    [NotifyPropertyChangedFor(nameof(IsBorderModeReflect))]
-    [NotifyPropertyChangedFor(nameof(IsInterpolationNearest))]
-    [NotifyPropertyChangedFor(nameof(IsInterpolationLinear))]
-    [NotifyPropertyChangedFor(nameof(IsInterpolationCubic))]
     private string paramBNameText = "";
 
     private string paramAText = "128";
@@ -206,6 +197,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     public ObservableCollection<PipelineNodeViewModel> PipelineNodes { get; } = [];
 
+    public ObservableCollection<ParameterOptionViewModel> ParamBOptions { get; } = [];
+
     public string ParamAText
     {
         get => paramAText;
@@ -252,21 +245,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     public int ParamBMaximum => SelectedOperator is not null && operatorRegistry.FindByName(SelectedOperator.Name) is { } op ? op.ParamBMaximum : 255;
 
-    public bool IsBorderModeParameterVisible => SelectedOperator?.Name == "Rotate";
+    public bool IsParamBOptionsVisible => ParamBOptions.Count > 0;
 
-    public bool IsInterpolationParameterVisible => SelectedOperator?.Name == "Resize";
-
-    public bool IsStandardParamBVisible => !IsBorderModeParameterVisible && !IsInterpolationParameterVisible;
-
-    public bool IsBorderModeConstant => IsBorderModeParameterVisible && (int)Math.Round(ParamBValue) == 0;
-
-    public bool IsBorderModeReflect => IsBorderModeParameterVisible && !IsBorderModeConstant;
-
-    public bool IsInterpolationNearest => IsInterpolationParameterVisible && (int)Math.Round(ParamBValue) == 0;
-
-    public bool IsInterpolationLinear => IsInterpolationParameterVisible && (int)Math.Round(ParamBValue) == 1;
-
-    public bool IsInterpolationCubic => IsInterpolationParameterVisible && (int)Math.Round(ParamBValue) == 2;
+    public bool IsStandardParamBVisible => !IsParamBOptionsVisible;
 
     public double PipelinePaneHeight => IsPipelineCompact ? 126 : 188;
 
@@ -314,6 +295,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     partial void OnSelectedPipelineNodeChanged(PipelineNodeViewModel? value)
     {
+        ResetInspectorEditBaseline();
         foreach (var node in PipelineNodes)
             node.IsCurrent = ReferenceEquals(node, value);
 
@@ -621,20 +603,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
-    private void SetBorderMode(string? mode)
+    private void SetParameterOption(string? valueText)
     {
-        SetParamBOption(mode, 0, 1);
-    }
-
-    [RelayCommand]
-    private void SetInterpolationMode(string? mode)
-    {
-        SetParamBOption(mode, 0, 2);
-    }
-
-    private void SetParamBOption(string? mode, int min, int max)
-    {
-        if (!int.TryParse(mode, out var value) || value < min || value > max)
+        if (!int.TryParse(valueText, out var value) || value < ParamBMinimum || value > ParamBMaximum)
             return;
 
         SetParamBValue(value);
@@ -741,6 +712,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         ParamANameText = SelectedOperator.ParamA;
         ParamBNameText = SelectedOperator.ParamB;
         SetBothParameterValues(SelectedOperator.DefaultA, SelectedOperator.DefaultB);
+        RefreshParameterOptions();
         OperatorDescriptionText = SelectedOperator.Description;
         NodeDetailsText =
             $"类别：{SelectedOperator.Category}\n" +
@@ -778,6 +750,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         if (node.IsStep && node.StepIndex >= 0 && node.StepIndex < pipeline.Count)
         {
             var step = pipeline[node.StepIndex];
+            CaptureInspectorEditBaseline(step.Id);
             var op = FilteredOperators.FirstOrDefault(item => item.Name == step.OperatorName);
             if (op is not null)
             {
@@ -790,6 +763,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             ParamANameText = op?.ParamA ?? "参数 A";
             ParamBNameText = op?.ParamB ?? "参数 B";
             SetBothParameterValues(GetPrimaryParameterValue(step), GetSecondaryParameterValue(step));
+            RefreshParameterOptions();
             IsStepEnabled = step.IsEnabled;
             IsClampEnabled = step.ClampOutput;
             var parameterText = FormatStepParameters(step);
@@ -803,12 +777,30 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         {
             ParamANameText = "";
             ParamBNameText = "";
+            ParamBOptions.Clear();
             NodeDetailsText =
                 $"状态：{node.StatusText}\n" +
                 $"角色：{node.Title}";
         }
 
         isSyncingPipelineSelection = false;
+    }
+
+    private void CaptureInspectorEditBaseline(Guid stepId)
+    {
+        if (inspectorEditStepId == stepId && inspectorEditBaseline is not null)
+            return;
+
+        inspectorEditStepId = stepId;
+        inspectorEditBaseline = ClonePipeline();
+        inspectorEditUndoPushed = false;
+    }
+
+    private void ResetInspectorEditBaseline()
+    {
+        inspectorEditStepId = null;
+        inspectorEditBaseline = null;
+        inspectorEditUndoPushed = false;
     }
 
     private void RefreshCanvas()
@@ -895,11 +887,24 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private void RefreshParameterOptionState()
     {
-        OnPropertyChanged(nameof(IsBorderModeConstant));
-        OnPropertyChanged(nameof(IsBorderModeReflect));
-        OnPropertyChanged(nameof(IsInterpolationNearest));
-        OnPropertyChanged(nameof(IsInterpolationLinear));
-        OnPropertyChanged(nameof(IsInterpolationCubic));
+        RefreshParameterOptions();
+        OnPropertyChanged(nameof(IsParamBOptionsVisible));
+        OnPropertyChanged(nameof(IsStandardParamBVisible));
+    }
+
+    private void RefreshParameterOptions()
+    {
+        var selectedValue = (int)Math.Round(ParamBValue);
+        var op = SelectedOperator is null ? null : operatorRegistry.FindByName(SelectedOperator.Name);
+        var options = op?.Descriptor.SecondaryParameter?.Options ?? [];
+
+        ParamBOptions.Clear();
+        foreach (var option in options)
+        {
+            var item = new ParameterOptionViewModel(option.Value, option.Label, value => SetParamBValue(value));
+            item.IsSelected = option.Value == selectedValue;
+            ParamBOptions.Add(item);
+        }
     }
 
     private void UpdateSelectedPipelineStepFromInspector()
@@ -921,10 +926,23 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         if (updated == current)
             return;
 
+        PushInspectorEditUndoState(current.Id);
         pipeline[index] = updated;
         failedPipelineStepIndex = -1;
         RefreshPipelineNodes(index + 1);
         RunPipeline(false);
+    }
+
+    private void PushInspectorEditUndoState(Guid stepId)
+    {
+        if (inspectorEditUndoPushed)
+            return;
+
+        if (inspectorEditStepId != stepId || inspectorEditBaseline is null)
+            CaptureInspectorEditBaseline(stepId);
+
+        pipelineHistory.PushUndo((inspectorEditBaseline ?? ClonePipeline()).Select(CloneStep).ToList());
+        inspectorEditUndoPushed = true;
     }
 
     private string FormatStepParameters(string operatorName, int paramA, int paramB)
@@ -950,9 +968,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         }));
     }
 
-    private static bool OperatorHasParameters(string operatorName)
+    private bool OperatorHasParameters(string operatorName)
     {
-        return operatorName != "Grayscale";
+        return operatorRegistry.FindByName(operatorName)?.Descriptor.Parameters.Count > 0;
     }
 
     private static int ReadParamText(string? text, double currentValue, int min, int max)

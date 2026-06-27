@@ -425,18 +425,19 @@
                       <TextBlock Text="{Binding ParamBNameText}" Classes="sectionTitle" VerticalAlignment="Center" />
                       <TextBox Grid.Column="1" Classes="paramInput" Text="{Binding ParamBText, Mode=TwoWay}" IsVisible="{Binding IsStandardParamBVisible}" />
                       <Slider Grid.Row="1" Grid.ColumnSpan="2" Classes="paramSlider" Minimum="{Binding ParamBMinimum}" Maximum="{Binding ParamBMaximum}" Value="{Binding ParamBValue, Mode=TwoWay}" TickFrequency="1" IsVisible="{Binding IsStandardParamBVisible}" />
-                      <Border Grid.Row="1" Grid.ColumnSpan="2" Background="{DynamicResource ControlSurfaceBrush}" BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="2" IsVisible="{Binding IsBorderModeParameterVisible}">
-                        <StackPanel Orientation="Horizontal" Spacing="2">
-                          <Button Classes="modeSegment" Classes.active="{Binding IsBorderModeConstant}" MinWidth="86" Content="常量填充" Command="{Binding SetBorderModeCommand}" CommandParameter="0" />
-                          <Button Classes="modeSegment" Classes.active="{Binding IsBorderModeReflect}" MinWidth="86" Content="镜像边界" Command="{Binding SetBorderModeCommand}" CommandParameter="1" />
-                        </StackPanel>
-                      </Border>
-                      <Border Grid.Row="1" Grid.ColumnSpan="2" Background="{DynamicResource ControlSurfaceBrush}" BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="2" IsVisible="{Binding IsInterpolationParameterVisible}">
-                        <StackPanel Orientation="Horizontal" Spacing="2">
-                          <Button Classes="modeSegment" Classes.active="{Binding IsInterpolationNearest}" MinWidth="74" Content="最近邻" Command="{Binding SetInterpolationModeCommand}" CommandParameter="0" />
-                          <Button Classes="modeSegment" Classes.active="{Binding IsInterpolationLinear}" MinWidth="74" Content="线性" Command="{Binding SetInterpolationModeCommand}" CommandParameter="1" />
-                          <Button Classes="modeSegment" Classes.active="{Binding IsInterpolationCubic}" MinWidth="74" Content="三次" Command="{Binding SetInterpolationModeCommand}" CommandParameter="2" />
-                        </StackPanel>
+                      <Border Grid.Row="1" Grid.ColumnSpan="2" Background="{DynamicResource ControlSurfaceBrush}" BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="2" IsVisible="{Binding IsParamBOptionsVisible}">
+                        <ItemsControl ItemsSource="{Binding ParamBOptions}">
+                          <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                              <StackPanel Orientation="Horizontal" Spacing="2" />
+                            </ItemsPanelTemplate>
+                          </ItemsControl.ItemsPanel>
+                          <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                              <Button Classes="modeSegment" Classes.active="{Binding IsSelected}" MinWidth="74" Content="{Binding Label}" Command="{Binding SelectCommand}" />
+                            </DataTemplate>
+                          </ItemsControl.ItemTemplate>
+                        </ItemsControl>
                       </Border>
                     </Grid>
                   </Border>
