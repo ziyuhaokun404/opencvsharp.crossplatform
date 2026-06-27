@@ -230,18 +230,13 @@
         <!-- 分隔线 -->
         <Border Grid.Column="1" Width="1" Margin="4,8" Background="{DynamicResource DividerBrush}" />
 
-        <!-- 中组：算法 + 方法选择器 -->
+        <!-- 中组：算法选择器 -->
         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
                     IsEnabled="{Binding IsReady}">
           <TextBlock Text="算法" Classes="caption" VerticalAlignment="Center" Margin="0,0,2,0" />
           <ComboBox Classes="toolbar"
                     ItemsSource="{Binding Algorithms}"
                     SelectedItem="{Binding SelectedAlgorithm, Mode=TwoWay}" />
-          <TextBlock Text="方法" Classes="caption" VerticalAlignment="Center" Margin="4,0,2,0" />
-          <ComboBox Classes="toolbar"
-                    ItemsSource="{Binding Methods}"
-                    SelectedItem="{Binding SelectedMethod, Mode=TwoWay}"
-                    IsEnabled="{Binding IsTemplateMatchMethodEnabled}" />
         </StackPanel>
 
         <!-- 右组：训练 + 运行 -->
@@ -656,14 +651,22 @@
             <Border Classes="sideCard">
               <StackPanel Spacing="12">
                 <TextBlock Text="匹配参数" Classes="sectionTitle" />
-                <Grid RowDefinitions="Auto,Auto" RowSpacing="6">
+                <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="6">
                   <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="8">
+                    <TextBlock Text="方法" Classes="paramLabel" />
+                    <ComboBox Grid.Column="1"
+                              MinWidth="160"
+                              ItemsSource="{Binding Methods}"
+                              SelectedItem="{Binding SelectedMethod, Mode=TwoWay}"
+                              IsEnabled="{Binding IsTemplateMatchMethodEnabled}" />
+                  </Grid>
+                  <Grid Grid.Row="1" ColumnDefinitions="Auto,Auto" ColumnSpacing="8">
                     <TextBlock Text="阈值" Classes="paramLabel" />
                     <TextBlock Grid.Column="1" Text="{Binding Threshold, StringFormat={}{0:F2}}"
                                Classes="paramValue"
                                TextAlignment="Left" />
                   </Grid>
-                  <Grid Grid.Row="1" ColumnDefinitions="*,58" ColumnSpacing="10">
+                  <Grid Grid.Row="2" ColumnDefinitions="*,58" ColumnSpacing="10">
                     <Slider Minimum="0" Maximum="1" TickFrequency="0.01"
                             Value="{Binding Threshold, Mode=TwoWay}" Classes="compact" VerticalAlignment="Center" />
                     <TextBox Grid.Column="1" Text="{Binding ThresholdText, Mode=TwoWay}"

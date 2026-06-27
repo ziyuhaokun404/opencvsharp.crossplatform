@@ -222,7 +222,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         Algorithms =
         [
             new("模板匹配", new MatchTemplateLocator(), true),
-            new("粗到细模板匹配", new CoarseToFineMatchTemplateLocator(), true),
             new("轮廓匹配", contourLocator, false)
         ];
         Methods =
@@ -866,11 +865,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                 match.Rect.Y,
                 match.Rect.Width,
                 match.Rect.Height,
+                match.Angle,
                 match.Rect == bestRect))
             .ToList();
 
         if (overlays.All(overlay => !overlay.IsBestMatch))
-            overlays.Insert(0, new MatchOverlayViewModel(bestRect.X, bestRect.Y, bestRect.Width, bestRect.Height, true));
+            overlays.Insert(0, new MatchOverlayViewModel(bestRect.X, bestRect.Y, bestRect.Width, bestRect.Height, 0, true));
 
         return overlays;
     }
