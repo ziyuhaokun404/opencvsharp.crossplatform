@@ -17,4 +17,7 @@
     <File Path="scripts/bundle-native-runtime-macos.sh" />
     <File Path="scripts/stage-native-runtime.sh" />
   </Folder>
+  <Folder Name="/Tests/">
+    <Project Path="tests/opencvsharp.mac.core.tests/opencvsharp.mac.core.tests.csproj" />
+  </Folder>
 </Solution>
