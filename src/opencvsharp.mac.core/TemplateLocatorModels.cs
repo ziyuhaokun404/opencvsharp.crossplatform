@@ -9,7 +9,10 @@ public sealed record TemplateLocatorOptions(
     bool HigherIsBetter,
     double Threshold,
     bool UseGrayscale,
-    double NmsOverlapThreshold);
+    double NmsOverlapThreshold,
+    int MaxRefineCandidates = 0,
+    int MaxMatches = 0,
+    bool PreserveUnrefinedMatches = true);
 
 public sealed record TemplateLocatorResult(
     Point BestLocation,
@@ -28,4 +31,4 @@ public sealed record TemplateLocatorResult(
     int? PyramidThresholdPixels = null,
     int? PyramidMinTemplateEdge = null);
 
-public readonly record struct MatchCandidate(Rect Rect, double Score);
+public readonly record struct MatchCandidate(Rect Rect, double Score, double Angle = 0);

@@ -33,12 +33,19 @@ public sealed class MatchTemplateLocator : ITemplateLocator, IDisposable
     private const int MaxPerCandidateRefineTemplatePixels = 262_144;
     private const int MaxScaledRefineTemplatePixels = 4_096;
     private const int MaxFullResolutionRefineCandidates = 64;
+    private const int DenseMatchRefineCandidates = 16;
+    private const int DenseMatchThreshold = 512;
+    private const int VeryDenseMatchRefineCandidates = 8;
+    private const int VeryDenseMatchThreshold = 2048;
+    private const int MaxAngleEstimateCandidates = 128;
+    private const int MaxAngleEstimatePixels = 4096;
+    private const double MinAngleEstimateAspectRatio = 1.25;
     private const int MaxRefinementPatchCount = 3;
     private const int MaxRefinementPatchEdge = 48;
     private const int FinalPatchRefineRadiusPixels = 4;
     private const int PatchAgreementTolerancePixels = 2;
     private const double MaxRefinementPatchOverlap = 0.20;
-    private const double RefineRadiusPyramidPixels = 1.5;
+    private const double RefineRadiusPyramidPixels = 2.0;
     private const int MinRefineRadiusPixels = 6;
     private const int MaxRefineRadiusPixels = 32;
     private TemplateRefinementCache? refinementCache;
@@ -49,6 +56,78 @@ public sealed class MatchTemplateLocator : ITemplateLocator, IDisposable
     {
         refinementCache?.Dispose();
         refinementCache = null;
+    }
+
+    private static int GetMaxRefineCandidates(TemplateLocatorOptions options, int matchCount)
+    {
+        if (options.MaxRefineCandidates > 0)
+            return options.MaxRefineCandidates;
+
+        if (!options.PreserveUnrefinedMatches)
+            return MaxFullResolutionRefineCandidates;
+
+        if (matchCount >= VeryDenseMatchThreshold)
+            return VeryDenseMatchRefineCandidates;
+
+        if (matchCount >= DenseMatchThreshold)
+            return DenseMatchRefineCandidates;
+
+        return MaxFullResolutionRefineCandidates;
+    }
+
+    private static int CreatePreservedMatchCapacity(int matchCount, int refinedLimit, TemplateLocatorOptions options)
+    {
+        var capacity = options.PreserveUnrefinedMatches ? matchCount + 1 : refinedLimit + 1;
+        if (options.MaxMatches > 0)
+            capacity = Math.Min(capacity, options.MaxMatches + 1);
+
+        return Math.Max(0, capacity);
+    }
+
+    private static void AddUnrefinedMatches(
+        List<MatchCandidate> target,
+        IReadOnlyList<MatchCandidate> matches,
+        int startIndex,
+        TemplateLocatorOptions options)
+    {
+        if (!options.PreserveUnrefinedMatches)
+            return;
+
+        var refinedCount = target.Count;
+        var remaining = options.MaxMatches > 0
+            ? Math.Max(0, options.MaxMatches - target.Count)
+            : int.MaxValue;
+        for (var i = startIndex; i < matches.Count && remaining > 0; i++)
+        {
+            if (IsSuppressedByExisting(matches[i], target, refinedCount, options.NmsOverlapThreshold))
+                continue;
+
+            target.Add(matches[i]);
+            remaining--;
+        }
+    }
+
+    private static List<MatchCandidate> LimitMatches(List<MatchCandidate> matches, int maxMatches)
+    {
+        if (maxMatches <= 0 || matches.Count <= maxMatches)
+            return matches;
+
+        return matches.GetRange(0, maxMatches);
+    }
+
+    private static bool IsSuppressedByExisting(
+        MatchCandidate candidate,
+        IReadOnlyList<MatchCandidate> existing,
+        int existingCount,
+        double overlapThreshold)
+    {
+        for (var i = 0; i < existingCount; i++)
+        {
+            if (MatchCandidateUtilities.CalculateIntersectionOverUnion(candidate.Rect, existing[i].Rect) > overlapThreshold)
+                return true;
+        }
+
+        return false;
     }
 
     public TemplateLocatorResult Locate(Mat source, Mat template, TemplateLocatorOptions options)
@@ -65,7 +144,7 @@ public sealed class MatchTemplateLocator : ITemplateLocator, IDisposable
 
         var resultCols = matchSource.Width - matchTemplate.Width + 1;
         var resultRows = matchSource.Height - matchTemplate.Height + 1;
-        var resultArea = resultCols * resultRows;
+        var resultArea = (long)resultCols * resultRows;
         var scale = ComputePyramidScale(resultArea, matchTemplate.Width, matchTemplate.Height);
 
         Mat workSource, workTemplate;
@@ -117,6 +196,10 @@ public sealed class MatchTemplateLocator : ITemplateLocator, IDisposable
                 matches = RefineMatches(matchSource, matchTemplate, matches, coarseBestCandidate, bestCandidate, options, scale, profile);
             }
 
+            matches = LimitMatches(matches, options.MaxMatches);
+            matches = EstimateMatchAngles(matchSource, matches, template.Size(), profile);
+            bestCandidate = bestCandidate with { Angle = ShouldEstimateAngles(template.Size()) ? EstimateMatchAngle(matchSource, bestCandidate.Rect) : 0 };
+
             stopwatch.Stop();
             var profileResult = profile.Finish();
 
@@ -147,10 +230,152 @@ public sealed class MatchTemplateLocator : ITemplateLocator, IDisposable
         }
     }
 
+    private static List<MatchCandidate> EstimateMatchAngles(
+        Mat source,
+        List<MatchCandidate> matches,
+        Size templateSize,
+        PerformanceProfile profile)
+    {
+        if (matches.Count == 0)
+            return matches;
+
+        if (!ShouldEstimateAngles(templateSize))
+        {
+            profile.Step("AngleEstimate", "跳过：模板宽高比不足");
+            return matches;
+        }
+
+        var angled = new List<MatchCandidate>(matches.Count);
+        for (var i = 0; i < matches.Count; i++)
+        {
+            var match = matches[i];
+            var angle = i < MaxAngleEstimateCandidates
+                ? EstimateMatchAngle(source, match.Rect)
+                : 0;
+            angled.Add(match with { Angle = angle });
+        }
+
+        var detail = matches.Count <= MaxAngleEstimateCandidates
+            ? $"匹配 {matches.Count}"
+            : $"候选 {MaxAngleEstimateCandidates}/{matches.Count}";
+        profile.Step("AngleEstimate", detail);
+        return angled;
+    }
+
+    private static bool ShouldEstimateAngles(Size templateSize)
+    {
+        var minEdge = Math.Max(1, Math.Min(templateSize.Width, templateSize.Height));
+        var maxEdge = Math.Max(templateSize.Width, templateSize.Height);
+        return (double)maxEdge / minEdge >= MinAngleEstimateAspectRatio;
+    }
+
+    private static double EstimateMatchAngle(Mat source, Rect rect)
+    {
+        var bounds = new Rect(0, 0, source.Width, source.Height);
+        var roiRect = rect.Intersect(bounds);
+        if (roiRect.Width < 4 || roiRect.Height < 4)
+            return 0;
+
+        using var roi = new Mat(source, roiRect);
+        var scale = ComputeAngleEstimateScale(roiRect.Width, roiRect.Height);
+        using var resized = scale < 1.0 ? new Mat() : null;
+        var angleSource = roi;
+        if (resized is not null)
+        {
+            Cv2.Resize(roi, resized, new Size(0, 0), scale, scale, InterpolationFlags.Area);
+            angleSource = resized;
+        }
+
+        using var gray = angleSource.Channels() == 1 ? angleSource : ImageHelpers.ConvertToGray(angleSource);
+        if (gray.Type() != MatType.CV_8UC1)
+            return 0;
+
+        return EstimateGrayPrincipalAngle(gray);
+    }
+
+    private static double ComputeAngleEstimateScale(int width, int height)
+    {
+        var area = (long)width * height;
+        if (area <= MaxAngleEstimatePixels)
+            return 1.0;
+
+        return Math.Sqrt((double)MaxAngleEstimatePixels / area);
+    }
+
+    private static unsafe double EstimateGrayPrincipalAngle(Mat gray)
+    {
+        var width = gray.Width;
+        var height = gray.Height;
+        var ptr = (byte*)gray.DataPointer;
+        var step = (long)gray.Step();
+        var sum = 0.0;
+        var pixels = width * height;
+        for (var y = 0; y < height; y++)
+        {
+            var row = ptr + y * step;
+            for (var x = 0; x < width; x++)
+                sum += row[x];
+        }
+
+        var mean = sum / pixels;
+        var m00 = 0.0;
+        var m10 = 0.0;
+        var m01 = 0.0;
+        for (var y = 0; y < height; y++)
+        {
+            var row = ptr + y * step;
+            for (var x = 0; x < width; x++)
+            {
+                var weight = Math.Abs(row[x] - mean);
+                if (weight < 8)
+                    continue;
+
+                m00 += weight;
+                m10 += weight * x;
+                m01 += weight * y;
+            }
+        }
+
+        if (m00 <= 0)
+            return 0;
+
+        var centerX = m10 / m00;
+        var centerY = m01 / m00;
+        var mu20 = 0.0;
+        var mu02 = 0.0;
+        var mu11 = 0.0;
+        for (var y = 0; y < height; y++)
+        {
+            var row = ptr + y * step;
+            var dy = y - centerY;
+            for (var x = 0; x < width; x++)
+            {
+                var weight = Math.Abs(row[x] - mean);
+                if (weight < 8)
+                    continue;
+
+                var dx = x - centerX;
+                mu20 += weight * dx * dx;
+                mu02 += weight * dy * dy;
+                mu11 += weight * dx * dy;
+            }
+        }
+
+        var angle = 0.5 * Math.Atan2(2.0 * mu11, mu20 - mu02) * 180.0 / Math.PI;
+        return NormalizeAngle(angle);
+    }
+
+    private static double NormalizeAngle(double angle)
+    {
+        while (angle <= -90) angle += 180;
+        while (angle > 90) angle -= 180;
+        return angle;
+    }
+
     /// <summary>
     /// Computes the downsampling scale factor. Returns 1.0 if no pyramid is needed.
     /// </summary>
-    private static double ComputePyramidScale(int resultArea, int templateWidth, int templateHeight)
+    private static double ComputePyramidScale(long resultArea, int templateWidth, int templateHeight)
     {
         if (resultArea <= PyramidThresholdPixels)
             return 1.0;
@@ -202,17 +427,19 @@ public sealed class MatchTemplateLocator : ITemplateLocator, IDisposable
         }
 
         if ((long)template.Width * template.Height > MaxPerCandidateRefineTemplatePixels)
-            return RefineMatchesByScaledTemplate(source, template, matches, coarseBestCandidate, refinedBestCandidate, options, scale, profile);
+            return RefineLargeTemplateMatches(source, template, matches, coarseBestCandidate, refinedBestCandidate, options, scale, profile);
 
-        var limit = Math.Min(matches.Count, MaxFullResolutionRefineCandidates);
+        var limit = Math.Min(matches.Count, GetMaxRefineCandidates(options, matches.Count));
         var radius = ComputeRefineRadius(scale);
-        var refined = new List<MatchCandidate>(limit + 1);
+        var refined = new List<MatchCandidate>(CreatePreservedMatchCapacity(matches.Count, limit, options));
         for (var i = 0; i < limit; i++)
         {
             var candidate = RefineCandidate(source, template, matches[i].Rect.Location, radius, options);
             if (candidate.Score >= options.Threshold)
                 refined.Add(candidate);
         }
+
+        AddUnrefinedMatches(refined, matches, limit, options);
 
         if (refinedBestCandidate.Score >= options.Threshold &&
             !refined.Any(candidate => candidate.Rect == refinedBestCandidate.Rect))
@@ -226,12 +453,13 @@ public sealed class MatchTemplateLocator : ITemplateLocator, IDisposable
             return matches;
         }
 
-        var refinedMatches = MatchCandidateUtilities.ApplyNonMaximumSuppression(refined, options.NmsOverlapThreshold);
-        profile.Step("FullResolution.RefineMatches", $"候选 {limit}/{matches.Count}，匹配 {refinedMatches.Count}");
+        var refinedMatches = LimitMatches(MatchCandidateUtilities.ApplyNonMaximumSuppression(refined, options.NmsOverlapThreshold), options.MaxMatches);
+        var preservedDetail = options.PreserveUnrefinedMatches ? $"，保留粗匹配 {Math.Max(0, matches.Count - limit)}" : "";
+        profile.Step("FullResolution.RefineMatches", $"候选 {limit}/{matches.Count}{preservedDetail}，匹配 {refinedMatches.Count}");
         return refinedMatches;
     }
 
-    private List<MatchCandidate> RefineMatchesByScaledTemplate(
+    private List<MatchCandidate> RefineLargeTemplateMatches(
         Mat source,
         Mat template,
         List<MatchCandidate> matches,
@@ -241,7 +469,7 @@ public sealed class MatchTemplateLocator : ITemplateLocator, IDisposable
         double scale,
         PerformanceProfile profile)
     {
-        var limit = Math.Min(matches.Count, MaxFullResolutionRefineCandidates);
+        var limit = Math.Min(matches.Count, GetMaxRefineCandidates(options, matches.Count));
         var hasNonBestCandidate = false;
         for (var i = 0; i < limit; i++)
         {
@@ -262,22 +490,59 @@ public sealed class MatchTemplateLocator : ITemplateLocator, IDisposable
 
         var radius = ComputeRefineRadius(scale);
         var cache = GetOrCreateRefinementCache(template);
-        var refined = new List<MatchCandidate>(limit + 1);
+        var refined = new List<MatchCandidate>(CreatePreservedMatchCapacity(matches.Count, limit, options));
+        var totalPatchRefinements = 0;
+        var patchRefinedCandidates = 0;
+        var scaledFallbacks = 0;
 
         for (var i = 0; i < limit; i++)
         {
             var match = matches[i];
-            var candidate = match.Rect == coarseBestCandidate.Rect
-                ? refinedBestCandidate
-                : RefineCandidateWithPatches(
+            MatchCandidate candidate;
+            if (match.Rect == coarseBestCandidate.Rect)
+            {
+                candidate = refinedBestCandidate;
+            }
+            else
+            {
+                candidate = RefineCandidateWithPatches(
                     source,
                     cache.Patches,
                     template.Size(),
-                    RefineCandidateWithScaledTemplate(source, cache.ScaledTemplate, template.Size(), match, radius, options),
-                    FinalPatchRefineRadiusPixels,
-                    options);
+                    match,
+                    radius,
+                    options,
+                    out var usedPatchRefinements,
+                    out var isConfident);
+                totalPatchRefinements += usedPatchRefinements;
+                patchRefinedCandidates++;
+                if (!isConfident)
+                {
+                    var scaledCandidate = RefineCandidateWithScaledTemplate(
+                        source,
+                        cache.GetOrCreateScaledTemplate(template),
+                        template.Size(),
+                        match,
+                        radius,
+                        options);
+                    candidate = RefineCandidateWithPatches(
+                        source,
+                        cache.Patches,
+                        template.Size(),
+                        scaledCandidate,
+                        FinalPatchRefineRadiusPixels,
+                        options,
+                        out var fallbackPatchRefinements,
+                        out _);
+                    totalPatchRefinements += fallbackPatchRefinements;
+                    scaledFallbacks++;
+                }
+            }
+
             refined.Add(candidate);
         }
+
+        AddUnrefinedMatches(refined, matches, limit, options);
 
         if (refinedBestCandidate.Score >= options.Threshold &&
             !refined.Any(candidate => candidate.Rect == refinedBestCandidate.Rect))
@@ -285,10 +550,14 @@ public sealed class MatchTemplateLocator : ITemplateLocator, IDisposable
             refined.Add(refinedBestCandidate);
         }
 
-        var refinedMatches = MatchCandidateUtilities.ApplyNonMaximumSuppression(refined, options.NmsOverlapThreshold);
+        var refinedMatches = LimitMatches(MatchCandidateUtilities.ApplyNonMaximumSuppression(refined, options.NmsOverlapThreshold), options.MaxMatches);
+        var fallbackDetail = scaledFallbacks == 0
+            ? "无缩略回退"
+            : $"缩略回退 {scaledFallbacks} 次 ×{cache.ScaledTemplateScale:F2}";
+        var preservedDetail = options.PreserveUnrefinedMatches ? $"，保留粗匹配 {Math.Max(0, matches.Count - limit)}" : "";
         profile.Step(
             "FullResolution.RefineMatches",
-            $"缩略全模板 ×{cache.ScaledTemplate.Scale:F2} + 锚点 {cache.Patches.Count} 个，候选 {limit}/{matches.Count}，匹配 {refinedMatches.Count}");
+            $"锚点直校 {cache.Patches.Count} 个，实际 {totalPatchRefinements}/{Math.Max(1, patchRefinedCandidates * cache.Patches.Count)}，{fallbackDetail}，候选 {limit}/{matches.Count}{preservedDetail}，匹配 {refinedMatches.Count}");
         return refinedMatches;
     }
 
@@ -304,7 +573,6 @@ public sealed class MatchTemplateLocator : ITemplateLocator, IDisposable
             template.Height,
             template.Type(),
             fingerprint,
-            CreateScaledTemplateRefinement(template),
             CreateRefinementPatches(template));
         return refinementCache;
     }
@@ -385,12 +653,20 @@ public sealed class MatchTemplateLocator : ITemplateLocator, IDisposable
         Size templateSize,
         MatchCandidate candidate,
         int radius,
-        TemplateLocatorOptions options)
+        TemplateLocatorOptions options,
+        out int usedPatchRefinements,
+        out bool isConfident)
     {
         if (patches.Count == 0)
+        {
+            usedPatchRefinements = 0;
+            isConfident = false;
             return candidate;
+        }
 
         var patchResult = RefineLocationWithPatches(source, patches, templateSize, candidate.Rect.Location, radius, options);
+        usedPatchRefinements = patchResult.UsedPatchRefinements;
+        isConfident = patchResult.IsConfident;
         return new MatchCandidate(new Rect(patchResult.Location, templateSize), candidate.Score);
     }
 
@@ -403,15 +679,15 @@ public sealed class MatchTemplateLocator : ITemplateLocator, IDisposable
         TemplateLocatorOptions options)
     {
         if (patches.Count == 0)
-            return new PatchRefinementResult(initialLocation, false);
+            return new PatchRefinementResult(initialLocation, 0, false);
 
         var first = RefineLocationWithPatch(source, patches.Patches[0], templateSize, initialLocation, radius, options);
         if (patches.Count == 1)
-            return new PatchRefinementResult(first, false);
+            return new PatchRefinementResult(first, 1, false);
 
         var second = RefineLocationWithPatch(source, patches.Patches[1], templateSize, initialLocation, radius, options);
         if (AreLocationsClose(first, second, PatchAgreementTolerancePixels))
-            return new PatchRefinementResult(AverageLocation(first, second), true);
+            return new PatchRefinementResult(AverageLocation(first, second), 2, true);
 
         var locations = new List<Point>(patches.Count);
         locations.Add(first);
@@ -424,7 +700,7 @@ public sealed class MatchTemplateLocator : ITemplateLocator, IDisposable
 
         var location = SelectConsensusLocation(locations);
         var isConfident = CountCloseLocations(locations, location, PatchAgreementTolerancePixels) >= 2;
-        return new PatchRefinementResult(location, isConfident);
+        return new PatchRefinementResult(location, locations.Count, isConfident);
     }
 
     private static Point RefineLocationWithPatch(
@@ -657,14 +933,12 @@ public sealed class MatchTemplateLocator : ITemplateLocator, IDisposable
             int height,
             MatType type,
             ulong fingerprint,
-            ScaledTemplateRefinement scaledTemplate,
             RefinementPatchSet patches)
         {
             Width = width;
             Height = height;
             Type = type;
             Fingerprint = fingerprint;
-            ScaledTemplate = scaledTemplate;
             Patches = patches;
         }
 
@@ -676,9 +950,17 @@ public sealed class MatchTemplateLocator : ITemplateLocator, IDisposable
 
         private ulong Fingerprint { get; }
 
-        public ScaledTemplateRefinement ScaledTemplate { get; }
-
         public RefinementPatchSet Patches { get; }
+
+        private ScaledTemplateRefinement? ScaledTemplate { get; set; }
+
+        public double ScaledTemplateScale => ScaledTemplate?.Scale ?? 1.0;
+
+        public ScaledTemplateRefinement GetOrCreateScaledTemplate(Mat template)
+        {
+            ScaledTemplate ??= CreateScaledTemplateRefinement(template);
+            return ScaledTemplate;
+        }
 
         public bool Matches(Mat template, ulong fingerprint)
         {
@@ -690,7 +972,7 @@ public sealed class MatchTemplateLocator : ITemplateLocator, IDisposable
 
         public void Dispose()
         {
-            ScaledTemplate.Dispose();
+            ScaledTemplate?.Dispose();
             Patches.Dispose();
         }
     }
@@ -736,7 +1018,7 @@ public sealed class MatchTemplateLocator : ITemplateLocator, IDisposable
 
     private readonly record struct RefinementPatchCandidate(Rect Rect, double Score);
 
-    private readonly record struct PatchRefinementResult(Point Location, bool IsConfident);
+    private readonly record struct PatchRefinementResult(Point Location, int UsedPatchRefinements, bool IsConfident);
 
     /// <summary>
     /// Extracts candidates from a result matrix using unsafe pointer access.
