@@ -14,7 +14,7 @@ public interface ITemplateLocator
     TemplateLocatorResult Locate(Mat source, Mat template, TemplateLocatorOptions options);
 }
 
-public sealed class MatchTemplateLocator : ITemplateLocator
+public sealed class MatchTemplateLocator : ITemplateLocator, IDisposable
 {
     /// <summary>
     /// Maximum result matrix area (cols × rows) before pyramid downsampling kicks in.
@@ -29,8 +29,27 @@ public sealed class MatchTemplateLocator : ITemplateLocator
     private const int InitialMatchCapacityDivisor = 64;
     private const int MinInitialMatchCapacity = 256;
     private const int MaxInitialMatchCapacity = 32768;
+    private const int MaxFullResolutionRefineTemplatePixels = 1_048_576;
+    private const int MaxPerCandidateRefineTemplatePixels = 262_144;
+    private const int MaxScaledRefineTemplatePixels = 4_096;
+    private const int MaxFullResolutionRefineCandidates = 64;
+    private const int MaxRefinementPatchCount = 3;
+    private const int MaxRefinementPatchEdge = 48;
+    private const int FinalPatchRefineRadiusPixels = 4;
+    private const int PatchAgreementTolerancePixels = 2;
+    private const double MaxRefinementPatchOverlap = 0.20;
+    private const double RefineRadiusPyramidPixels = 1.5;
+    private const int MinRefineRadiusPixels = 6;
+    private const int MaxRefineRadiusPixels = 32;
+    private TemplateRefinementCache? refinementCache;
 
     public string Name => "模板匹配";
+
+    public void Dispose()
+    {
+        refinementCache?.Dispose();
+        refinementCache = null;
+    }
 
     public TemplateLocatorResult Locate(Mat source, Mat template, TemplateLocatorOptions options)
     {
@@ -90,12 +109,20 @@ public sealed class MatchTemplateLocator : ITemplateLocator
             var matches = MatchCandidateUtilities.ApplyNonMaximumSuppression(candidates, options.NmsOverlapThreshold);
             profile.Step("NMS", $"匹配 {matches.Count}");
 
+            var coarseBestCandidate = new MatchCandidate(new Rect(bestLocation, template.Size()), bestScore);
+            var bestCandidate = coarseBestCandidate;
+            if (usedPyramid)
+            {
+                bestCandidate = RefineBestCandidate(matchSource, matchTemplate, bestCandidate, options, scale, profile);
+                matches = RefineMatches(matchSource, matchTemplate, matches, coarseBestCandidate, bestCandidate, options, scale, profile);
+            }
+
             stopwatch.Stop();
             var profileResult = profile.Finish();
 
             return new TemplateLocatorResult(
-                bestLocation,
-                bestScore,
+                bestCandidate.Rect.Location,
+                bestCandidate.Score,
                 template.Size(),
                 candidates,
                 matches,
@@ -137,6 +164,579 @@ public sealed class MatchTemplateLocator : ITemplateLocator
 
         return Math.Min(scale, 1.0);
     }
+
+    private static MatchCandidate RefineBestCandidate(
+        Mat source,
+        Mat template,
+        MatchCandidate bestCandidate,
+        TemplateLocatorOptions options,
+        double scale,
+        PerformanceProfile profile)
+    {
+        if ((long)template.Width * template.Height > MaxFullResolutionRefineTemplatePixels)
+        {
+            profile.Step("FullResolution.RefineBest", $"跳过：模板超过 {MaxFullResolutionRefineTemplatePixels} px");
+            return bestCandidate;
+        }
+
+        var radius = ComputeRefineRadius(scale);
+        var refined = RefineCandidate(source, template, bestCandidate.Rect.Location, radius, options);
+        profile.Step("FullResolution.RefineBest", $"半径 {radius}px，{bestCandidate.Rect.Location} → {refined.Rect.Location}");
+        return refined;
+    }
+
+    private List<MatchCandidate> RefineMatches(
+        Mat source,
+        Mat template,
+        List<MatchCandidate> matches,
+        MatchCandidate coarseBestCandidate,
+        MatchCandidate refinedBestCandidate,
+        TemplateLocatorOptions options,
+        double scale,
+        PerformanceProfile profile)
+    {
+        if ((long)template.Width * template.Height > MaxFullResolutionRefineTemplatePixels)
+        {
+            profile.Step("FullResolution.RefineMatches", "跳过");
+            return matches;
+        }
+
+        if ((long)template.Width * template.Height > MaxPerCandidateRefineTemplatePixels)
+            return RefineMatchesByScaledTemplate(source, template, matches, coarseBestCandidate, refinedBestCandidate, options, scale, profile);
+
+        var limit = Math.Min(matches.Count, MaxFullResolutionRefineCandidates);
+        var radius = ComputeRefineRadius(scale);
+        var refined = new List<MatchCandidate>(limit + 1);
+        for (var i = 0; i < limit; i++)
+        {
+            var candidate = RefineCandidate(source, template, matches[i].Rect.Location, radius, options);
+            if (candidate.Score >= options.Threshold)
+                refined.Add(candidate);
+        }
+
+        if (refinedBestCandidate.Score >= options.Threshold &&
+            !refined.Any(candidate => candidate.Rect == refinedBestCandidate.Rect))
+        {
+            refined.Add(refinedBestCandidate);
+        }
+
+        if (refined.Count == 0)
+        {
+            profile.Step("FullResolution.RefineMatches", $"候选 {limit}/{matches.Count}，无阈值内命中");
+            return matches;
+        }
+
+        var refinedMatches = MatchCandidateUtilities.ApplyNonMaximumSuppression(refined, options.NmsOverlapThreshold);
+        profile.Step("FullResolution.RefineMatches", $"候选 {limit}/{matches.Count}，匹配 {refinedMatches.Count}");
+        return refinedMatches;
+    }
+
+    private List<MatchCandidate> RefineMatchesByScaledTemplate(
+        Mat source,
+        Mat template,
+        List<MatchCandidate> matches,
+        MatchCandidate coarseBestCandidate,
+        MatchCandidate refinedBestCandidate,
+        TemplateLocatorOptions options,
+        double scale,
+        PerformanceProfile profile)
+    {
+        var limit = Math.Min(matches.Count, MaxFullResolutionRefineCandidates);
+        var hasNonBestCandidate = false;
+        for (var i = 0; i < limit; i++)
+        {
+            if (matches[i].Rect == coarseBestCandidate.Rect)
+                continue;
+
+            hasNonBestCandidate = true;
+            break;
+        }
+
+        if (!hasNonBestCandidate)
+        {
+            var bestOnly = new List<MatchCandidate>(1) { refinedBestCandidate };
+            var bestOnlyMatches = MatchCandidateUtilities.ApplyNonMaximumSuppression(bestOnly, options.NmsOverlapThreshold);
+            profile.Step("FullResolution.RefineMatches", $"仅最佳候选，匹配 {bestOnlyMatches.Count}");
+            return bestOnlyMatches;
+        }
+
+        var radius = ComputeRefineRadius(scale);
+        var cache = GetOrCreateRefinementCache(template);
+        var refined = new List<MatchCandidate>(limit + 1);
+
+        for (var i = 0; i < limit; i++)
+        {
+            var match = matches[i];
+            var candidate = match.Rect == coarseBestCandidate.Rect
+                ? refinedBestCandidate
+                : RefineCandidateWithPatches(
+                    source,
+                    cache.Patches,
+                    template.Size(),
+                    RefineCandidateWithScaledTemplate(source, cache.ScaledTemplate, template.Size(), match, radius, options),
+                    FinalPatchRefineRadiusPixels,
+                    options);
+            refined.Add(candidate);
+        }
+
+        if (refinedBestCandidate.Score >= options.Threshold &&
+            !refined.Any(candidate => candidate.Rect == refinedBestCandidate.Rect))
+        {
+            refined.Add(refinedBestCandidate);
+        }
+
+        var refinedMatches = MatchCandidateUtilities.ApplyNonMaximumSuppression(refined, options.NmsOverlapThreshold);
+        profile.Step(
+            "FullResolution.RefineMatches",
+            $"缩略全模板 ×{cache.ScaledTemplate.Scale:F2} + 锚点 {cache.Patches.Count} 个，候选 {limit}/{matches.Count}，匹配 {refinedMatches.Count}");
+        return refinedMatches;
+    }
+
+    private TemplateRefinementCache GetOrCreateRefinementCache(Mat template)
+    {
+        var fingerprint = ComputeTemplateFingerprint(template);
+        if (refinementCache is not null && refinementCache.Matches(template, fingerprint))
+            return refinementCache;
+
+        refinementCache?.Dispose();
+        refinementCache = new TemplateRefinementCache(
+            template.Width,
+            template.Height,
+            template.Type(),
+            fingerprint,
+            CreateScaledTemplateRefinement(template),
+            CreateRefinementPatches(template));
+        return refinementCache;
+    }
+
+    private static unsafe ulong ComputeTemplateFingerprint(Mat template)
+    {
+        const ulong offsetBasis = 14695981039346656037UL;
+        const ulong prime = 1099511628211UL;
+
+        var hash = offsetBasis;
+        hash = MixHash(hash, (ulong)template.Width);
+        hash = MixHash(hash, (ulong)template.Height);
+        hash = MixHash(hash, (ulong)template.Type().GetHashCode());
+
+        var ptr = (byte*)template.DataPointer;
+        var step = (long)template.Step();
+        var rowBytes = checked(template.Width * (int)template.ElemSize());
+        for (var y = 0; y < template.Height; y++)
+        {
+            var row = ptr + y * step;
+            for (var x = 0; x < rowBytes; x++)
+            {
+                hash ^= row[x];
+                hash *= prime;
+            }
+        }
+
+        return hash;
+
+        static ulong MixHash(ulong hash, ulong value)
+        {
+            const ulong prime = 1099511628211UL;
+            for (var i = 0; i < sizeof(ulong); i++)
+            {
+                hash ^= (byte)(value >> (i * 8));
+                hash *= prime;
+            }
+
+            return hash;
+        }
+    }
+
+    private static MatchCandidate RefineCandidateWithScaledTemplate(
+        Mat source,
+        ScaledTemplateRefinement scaledTemplate,
+        Size templateSize,
+        MatchCandidate candidate,
+        int radius,
+        TemplateLocatorOptions options)
+    {
+        var maxX = source.Width - templateSize.Width;
+        var maxY = source.Height - templateSize.Height;
+        var fromX = Math.Clamp(candidate.Rect.X - radius, 0, maxX);
+        var fromY = Math.Clamp(candidate.Rect.Y - radius, 0, maxY);
+        var toX = Math.Clamp(candidate.Rect.X + radius, 0, maxX);
+        var toY = Math.Clamp(candidate.Rect.Y + radius, 0, maxY);
+        var roi = new Rect(fromX, fromY, templateSize.Width + toX - fromX, templateSize.Height + toY - fromY);
+
+        using var sourceRoi = new Mat(source, roi);
+        using var scaledSourceRoi = new Mat();
+        Cv2.Resize(sourceRoi, scaledSourceRoi, new Size(0, 0), scaledTemplate.Scale, scaledTemplate.Scale, InterpolationFlags.Area);
+        if (scaledSourceRoi.Width < scaledTemplate.Template.Width || scaledSourceRoi.Height < scaledTemplate.Template.Height)
+            return candidate;
+
+        using var result = new Mat();
+        Cv2.MatchTemplate(scaledSourceRoi, scaledTemplate.Template, result, options.Method);
+        Cv2.MinMaxLoc(result, out _, out _, out var minLocation, out var maxLocation);
+
+        var bestLocal = options.HigherIsBetter ? maxLocation : minLocation;
+        var x = Math.Clamp(fromX + (int)Math.Round(bestLocal.X / scaledTemplate.Scale), 0, maxX);
+        var y = Math.Clamp(fromY + (int)Math.Round(bestLocal.Y / scaledTemplate.Scale), 0, maxY);
+        return new MatchCandidate(new Rect(x, y, templateSize.Width, templateSize.Height), candidate.Score);
+    }
+
+    private static MatchCandidate RefineCandidateWithPatches(
+        Mat source,
+        RefinementPatchSet patches,
+        Size templateSize,
+        MatchCandidate candidate,
+        int radius,
+        TemplateLocatorOptions options)
+    {
+        if (patches.Count == 0)
+            return candidate;
+
+        var patchResult = RefineLocationWithPatches(source, patches, templateSize, candidate.Rect.Location, radius, options);
+        return new MatchCandidate(new Rect(patchResult.Location, templateSize), candidate.Score);
+    }
+
+    private static PatchRefinementResult RefineLocationWithPatches(
+        Mat source,
+        RefinementPatchSet patches,
+        Size templateSize,
+        Point initialLocation,
+        int radius,
+        TemplateLocatorOptions options)
+    {
+        if (patches.Count == 0)
+            return new PatchRefinementResult(initialLocation, false);
+
+        var first = RefineLocationWithPatch(source, patches.Patches[0], templateSize, initialLocation, radius, options);
+        if (patches.Count == 1)
+            return new PatchRefinementResult(first, false);
+
+        var second = RefineLocationWithPatch(source, patches.Patches[1], templateSize, initialLocation, radius, options);
+        if (AreLocationsClose(first, second, PatchAgreementTolerancePixels))
+            return new PatchRefinementResult(AverageLocation(first, second), true);
+
+        var locations = new List<Point>(patches.Count);
+        locations.Add(first);
+        locations.Add(second);
+        for (var i = 2; i < patches.Count; i++)
+        {
+            var patch = patches.Patches[i];
+            locations.Add(RefineLocationWithPatch(source, patch, templateSize, initialLocation, radius, options));
+        }
+
+        var location = SelectConsensusLocation(locations);
+        var isConfident = CountCloseLocations(locations, location, PatchAgreementTolerancePixels) >= 2;
+        return new PatchRefinementResult(location, isConfident);
+    }
+
+    private static Point RefineLocationWithPatch(
+        Mat source,
+        RefinementPatch patch,
+        Size templateSize,
+        Point initialLocation,
+        int radius,
+        TemplateLocatorOptions options)
+    {
+        var expectedPatchX = initialLocation.X + patch.Offset.X;
+        var expectedPatchY = initialLocation.Y + patch.Offset.Y;
+        var maxPatchX = source.Width - patch.Template.Width;
+        var maxPatchY = source.Height - patch.Template.Height;
+        var fromX = Math.Clamp(expectedPatchX - radius, 0, maxPatchX);
+        var fromY = Math.Clamp(expectedPatchY - radius, 0, maxPatchY);
+        var toX = Math.Clamp(expectedPatchX + radius, 0, maxPatchX);
+        var toY = Math.Clamp(expectedPatchY + radius, 0, maxPatchY);
+        var roi = new Rect(fromX, fromY, patch.Template.Width + toX - fromX, patch.Template.Height + toY - fromY);
+
+        using var sourceRoi = new Mat(source, roi);
+        using var result = new Mat();
+        Cv2.MatchTemplate(sourceRoi, patch.Template, result, options.Method);
+        Cv2.MinMaxLoc(result, out _, out _, out var minLocation, out var maxLocation);
+
+        var bestLocal = options.HigherIsBetter ? maxLocation : minLocation;
+        var maxTemplateX = Math.Max(0, source.Width - templateSize.Width);
+        var maxTemplateY = Math.Max(0, source.Height - templateSize.Height);
+        var x = Math.Clamp(fromX + bestLocal.X - patch.Offset.X, 0, maxTemplateX);
+        var y = Math.Clamp(fromY + bestLocal.Y - patch.Offset.Y, 0, maxTemplateY);
+        return new Point(x, y);
+    }
+
+    private static Point SelectConsensusLocation(List<Point> locations)
+    {
+        if (locations.Count == 1)
+            return locations[0];
+
+        var bestIndex = 0;
+        var bestDistance = long.MaxValue;
+        for (var i = 0; i < locations.Count; i++)
+        {
+            long distance = 0;
+            for (var j = 0; j < locations.Count; j++)
+            {
+                distance += Math.Abs(locations[i].X - locations[j].X);
+                distance += Math.Abs(locations[i].Y - locations[j].Y);
+            }
+
+            if (distance >= bestDistance)
+                continue;
+
+            bestDistance = distance;
+            bestIndex = i;
+        }
+
+        return locations[bestIndex];
+    }
+
+    private static bool AreLocationsClose(Point a, Point b, int tolerance)
+    {
+        return Math.Abs(a.X - b.X) <= tolerance &&
+            Math.Abs(a.Y - b.Y) <= tolerance;
+    }
+
+    private static Point AverageLocation(Point a, Point b)
+    {
+        return new Point(
+            (int)Math.Round((a.X + b.X) / 2.0),
+            (int)Math.Round((a.Y + b.Y) / 2.0));
+    }
+
+    private static int CountCloseLocations(List<Point> locations, Point location, int tolerance)
+    {
+        var count = 0;
+        for (var i = 0; i < locations.Count; i++)
+        {
+            if (AreLocationsClose(locations[i], location, tolerance))
+                count++;
+        }
+
+        return count;
+    }
+
+    private static MatchCandidate RefineCandidate(
+        Mat source,
+        Mat template,
+        Point initialLocation,
+        int radius,
+        TemplateLocatorOptions options)
+    {
+        var maxX = source.Width - template.Width;
+        var maxY = source.Height - template.Height;
+        var fromX = Math.Clamp(initialLocation.X - radius, 0, maxX);
+        var fromY = Math.Clamp(initialLocation.Y - radius, 0, maxY);
+        var toX = Math.Clamp(initialLocation.X + radius, 0, maxX);
+        var toY = Math.Clamp(initialLocation.Y + radius, 0, maxY);
+        var roi = new Rect(fromX, fromY, template.Width + toX - fromX, template.Height + toY - fromY);
+
+        using var sourceRoi = new Mat(source, roi);
+        using var result = new Mat();
+        Cv2.MatchTemplate(sourceRoi, template, result, options.Method);
+        Cv2.MinMaxLoc(result, out var minValue, out var maxValue, out var minLocation, out var maxLocation);
+
+        var bestLocal = options.HigherIsBetter ? maxLocation : minLocation;
+        var score = options.HigherIsBetter ? maxValue : 1.0 - minValue;
+        return new MatchCandidate(
+            new Rect(fromX + bestLocal.X, fromY + bestLocal.Y, template.Width, template.Height),
+            score);
+    }
+
+    private static int ComputeRefineRadius(double scale)
+    {
+        if (scale >= 1.0)
+            return MinRefineRadiusPixels;
+
+        var radius = (int)Math.Ceiling(RefineRadiusPyramidPixels / scale);
+        return Math.Clamp(radius, MinRefineRadiusPixels, MaxRefineRadiusPixels);
+    }
+
+    private static ScaledTemplateRefinement CreateScaledTemplateRefinement(Mat template)
+    {
+        var templateArea = (long)template.Width * template.Height;
+        var scale = Math.Min(1.0, Math.Sqrt((double)MaxScaledRefineTemplatePixels / templateArea));
+        var scaledTemplate = new Mat();
+        Cv2.Resize(template, scaledTemplate, new Size(0, 0), scale, scale, InterpolationFlags.Area);
+        return new ScaledTemplateRefinement(scaledTemplate, scale);
+    }
+
+    private static RefinementPatchSet CreateRefinementPatches(Mat template)
+    {
+        var patchWidth = Math.Min(template.Width, MaxRefinementPatchEdge);
+        var patchHeight = Math.Min(template.Height, MaxRefinementPatchEdge);
+        var xPositions = CreatePatchPositions(template.Width, patchWidth);
+        var yPositions = CreatePatchPositions(template.Height, patchHeight);
+        var candidates = new List<RefinementPatchCandidate>(xPositions.Length * yPositions.Length);
+
+        foreach (var y in yPositions)
+        {
+            foreach (var x in xPositions)
+            {
+                var rect = new Rect(x, y, patchWidth, patchHeight);
+                using var patch = new Mat(template, rect);
+                var score = CalculatePatchScore(patch);
+                candidates.Add(new RefinementPatchCandidate(rect, score));
+            }
+        }
+
+        candidates.Sort(static (a, b) =>
+        {
+            if (b.Score > a.Score) return 1;
+            if (b.Score < a.Score) return -1;
+            return 0;
+        });
+
+        var selected = new List<RefinementPatch>(MaxRefinementPatchCount);
+        foreach (var candidate in candidates)
+        {
+            if (selected.Count > 0 && selected.Any(patch => CalculatePatchOverlap(candidate.Rect, patch.Rect) > MaxRefinementPatchOverlap))
+                continue;
+
+            selected.Add(new RefinementPatch(new Mat(template, candidate.Rect).Clone(), candidate.Rect.Location));
+            if (selected.Count == MaxRefinementPatchCount)
+                break;
+        }
+
+        if (selected.Count == 0)
+        {
+            var fallbackRect = new Rect((template.Width - patchWidth) / 2, (template.Height - patchHeight) / 2, patchWidth, patchHeight);
+            selected.Add(new RefinementPatch(new Mat(template, fallbackRect).Clone(), fallbackRect.Location));
+        }
+
+        return new RefinementPatchSet(selected);
+    }
+
+    private static int[] CreatePatchPositions(int length, int patchLength)
+    {
+        var max = length - patchLength;
+        if (max <= 0)
+            return [0];
+
+        var values = new[] { 0, max / 4, max / 2, max * 3 / 4, max };
+        return values.Distinct().OrderBy(value => value).ToArray();
+    }
+
+    private static double CalculatePatchScore(Mat patch)
+    {
+        Cv2.MeanStdDev(patch, out _, out var stddev);
+        return stddev.Val0 + stddev.Val1 + stddev.Val2 + stddev.Val3;
+    }
+
+    private static double CalculatePatchOverlap(Rect a, Rect b)
+    {
+        var intersectionX1 = Math.Max(a.X, b.X);
+        var intersectionY1 = Math.Max(a.Y, b.Y);
+        var intersectionX2 = Math.Min(a.Right, b.Right);
+        var intersectionY2 = Math.Min(a.Bottom, b.Bottom);
+        var intersectionWidth = Math.Max(0, intersectionX2 - intersectionX1);
+        var intersectionHeight = Math.Max(0, intersectionY2 - intersectionY1);
+        var intersectionArea = intersectionWidth * intersectionHeight;
+        if (intersectionArea == 0)
+            return 0.0;
+
+        var unionArea = a.Width * a.Height + b.Width * b.Height - intersectionArea;
+        return (double)intersectionArea / unionArea;
+    }
+
+    private sealed class ScaledTemplateRefinement : IDisposable
+    {
+        public ScaledTemplateRefinement(Mat template, double scale)
+        {
+            Template = template;
+            Scale = scale;
+        }
+
+        public Mat Template { get; }
+
+        public double Scale { get; }
+
+        public void Dispose()
+        {
+            Template.Dispose();
+        }
+    }
+
+    private sealed class TemplateRefinementCache : IDisposable
+    {
+        public TemplateRefinementCache(
+            int width,
+            int height,
+            MatType type,
+            ulong fingerprint,
+            ScaledTemplateRefinement scaledTemplate,
+            RefinementPatchSet patches)
+        {
+            Width = width;
+            Height = height;
+            Type = type;
+            Fingerprint = fingerprint;
+            ScaledTemplate = scaledTemplate;
+            Patches = patches;
+        }
+
+        private int Width { get; }
+
+        private int Height { get; }
+
+        private MatType Type { get; }
+
+        private ulong Fingerprint { get; }
+
+        public ScaledTemplateRefinement ScaledTemplate { get; }
+
+        public RefinementPatchSet Patches { get; }
+
+        public bool Matches(Mat template, ulong fingerprint)
+        {
+            return Width == template.Width &&
+                Height == template.Height &&
+                Type == template.Type() &&
+                Fingerprint == fingerprint;
+        }
+
+        public void Dispose()
+        {
+            ScaledTemplate.Dispose();
+            Patches.Dispose();
+        }
+    }
+
+    private sealed class RefinementPatchSet : IDisposable
+    {
+        public RefinementPatchSet(IReadOnlyList<RefinementPatch> patches)
+        {
+            Patches = patches;
+        }
+
+        public IReadOnlyList<RefinementPatch> Patches { get; }
+
+        public int Count => Patches.Count;
+
+        public void Dispose()
+        {
+            foreach (var patch in Patches)
+                patch.Dispose();
+        }
+    }
+
+    private sealed class RefinementPatch : IDisposable
+    {
+        public RefinementPatch(Mat template, Point offset)
+        {
+            Template = template;
+            Offset = offset;
+            Rect = new Rect(offset, template.Size());
+        }
+
+        public Mat Template { get; }
+
+        public Point Offset { get; }
+
+        public Rect Rect { get; }
+
+        public void Dispose()
+        {
+            Template.Dispose();
+        }
+    }
+
+    private readonly record struct RefinementPatchCandidate(Rect Rect, double Score);
+
+    private readonly record struct PatchRefinementResult(Point Location, bool IsConfident);
 
     /// <summary>
     /// Extracts candidates from a result matrix using unsafe pointer access.
