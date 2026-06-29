@@ -18,8 +18,16 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Using Include="OpenCvSharp.CrossPlatform.Core.Matching" />
+    <Using Include="OpenCvSharp.CrossPlatform.Core.Contours" />
+    <Using Include="OpenCvSharp.CrossPlatform.Core.Profiling" />
+    <Using Include="OpenCvSharp.CrossPlatform.Core.Selection" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\opencvsharp.crossplatform.core\opencvsharp.crossplatform.core.csproj" />
     <ProjectReference Include="..\..\samples\opencvsharp.crossplatform.samples.shared\opencvsharp.crossplatform.samples.shared.csproj" />
+    <ProjectReference Include="..\..\samples\opencvsharp.crossplatform.samples.location.avalonia\opencvsharp.crossplatform.samples.location.avalonia.csproj" />
   </ItemGroup>
 
 </Project>
