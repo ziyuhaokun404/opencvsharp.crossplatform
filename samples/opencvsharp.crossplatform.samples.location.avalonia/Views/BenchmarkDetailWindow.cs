@@ -11,6 +11,7 @@ using OpenCvSharp.CrossPlatform.Core;
 using AvaloniaPoint = Avalonia.Point;
 using AvaloniaRect = Avalonia.Rect;
 using AvaloniaWindow = Avalonia.Controls.Window;
+using OpenCvSharp.CrossPlatform.Samples.Location.Avalonia.Application.Benchmark;
 using OpenCvSharp.CrossPlatform.Samples.Location.Avalonia.Controls;
 using OpenCvSharp.CrossPlatform.Samples.Location.Avalonia.ViewModels.Models;
 
@@ -85,43 +86,7 @@ public sealed class BenchmarkDetailWindow : AvaloniaWindow
         TemplateLocatorOptions options,
         int warmupRuns,
         int benchmarkRuns)
-    {
-        // Warmup
-        for (var i = 0; i < warmupRuns; i++)
-            locator.Locate(source, template, options);
-
-        // 强制 GC，清理 warmup 产生的垃圾
-        GC.Collect();
-        GC.WaitForPendingFinalizers();
-        GC.Collect();
-
-        var gen0Before = GC.CollectionCount(0);
-        var gen1Before = GC.CollectionCount(1);
-        var gen2Before = GC.CollectionCount(2);
-        var allocBefore = GC.GetAllocatedBytesForCurrentThread();
-
-        var results = new List<TemplateLocatorResult>(benchmarkRuns);
-        for (var i = 0; i < benchmarkRuns; i++)
-            results.Add(locator.Locate(source, template, options));
-
-        var allocAfter = GC.GetAllocatedBytesForCurrentThread();
-        var gen0After = GC.CollectionCount(0);
-        var gen1After = GC.CollectionCount(1);
-        var gen2After = GC.CollectionCount(2);
-
-        var totalAllocated = allocAfter - allocBefore;
-        var summary = BenchmarkSummary.Create(results);
-
-        return new DetailedBenchmarkResult(
-            summary,
-            totalAllocated,
-            benchmarkRuns > 0 ? totalAllocated / benchmarkRuns : 0,
-            gen0After - gen0Before,
-            gen1After - gen1Before,
-            gen2After - gen2Before,
-            results[^1].Profile,
-            results);
-    }
+        => DetailedBenchmarkRunner.Run(locator, source, template, options, warmupRuns, benchmarkRuns);
 
     private static Control CreateHeader(DetailedBenchmarkResult result)
     {

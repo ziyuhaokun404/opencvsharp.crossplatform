@@ -37,7 +37,7 @@ public sealed class BenchmarkChartWindow : AvaloniaWindow
         };
         header.Children.Add(new TextBlock
         {
-            Text = "100 次运行耗时",
+            Text = $"{summary.RunTimingsMs.Count} 次运行耗时",
             FontSize = 18,
             FontWeight = FontWeight.SemiBold,
             Foreground = new SolidColorBrush(Color.Parse("#111827")),
