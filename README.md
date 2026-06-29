@@ -1,15 +1,25 @@
-# OpenCvSharp macOS Workspace
+# OpenCvSharp Cross-Platform Workspace
 
 本工作区包含：
 
-- `src/opencvsharp.mac.core`：算法封装库（模板匹配、轮廓分析等）
+- `src/opencvsharp.crossplatform.core`：算法封装库（模板匹配、轮廓分析等）
 - `ref/opencvsharp-4.13`：OpenCvSharp 原生 C++ 源码（用于构建 `OpenCvSharpExtern`）
-- `samples/opencvsharp.mac.samples.console`：控制台演示
-- `samples/opencvsharp.mac.samples.workbench.avalonia`：图像处理工作台
-- `samples/opencvsharp.mac.samples.location.avalonia`：模板匹配可视化演示
-- `samples/opencvsharp.mac.samples.shared`：共享原生运行时加载逻辑
+- `samples/opencvsharp.crossplatform.samples.console`：控制台演示
+- `samples/opencvsharp.crossplatform.samples.workbench.avalonia`：图像处理工作台
+- `samples/opencvsharp.crossplatform.samples.location.avalonia`：模板匹配可视化演示
+- `samples/opencvsharp.crossplatform.samples.shared`：共享原生运行时加载逻辑
+- `tests/opencvsharp.crossplatform.core.tests`：核心算法单元测试
 
-## 原生库约定
+## 跨平台原生运行时
+
+| 平台 | 策略 |
+|------|------|
+| **macOS** | 本地 CMake 自编译 `libOpenCvSharpExtern.dylib`，构建时复制到输出目录 |
+| **Windows** | 官方 NuGet `OpenCvSharp4.runtime.win` / `OpenCvSharp4.runtime.win-arm64`（按 CPU 架构自动选择） |
+
+Windows 上无需手动构建原生库；macOS 上仍需按下方步骤构建并 stage。
+
+## 原生库约定（macOS）
 
 原生库文件名：`libOpenCvSharpExtern.dylib`
 
@@ -20,9 +30,9 @@ build/native/osx-arm64/libOpenCvSharpExtern.dylib
 build/native/osx-x64/libOpenCvSharpExtern.dylib
 ```
 
-构建时会自动把原生库复制到应用输出目录。运行时也支持通过环境变量 `OPENCVSHARP_EXTERN_PATH` 显式指定原生库路径。
+构建时会自动把原生库复制到应用输出目录。运行时也支持通过环境变量 `OPENCVSHARP_EXTERN_PATH` 显式指定原生库路径（仅 macOS）。
 
-## 构建原生库
+## 构建原生库（macOS）
 
 ```bash
 brew install cmake pkg-config opencv
@@ -52,9 +62,10 @@ scripts/bundle-native-runtime-macos.sh
 ## 运行演示
 
 ```bash
-dotnet run --project samples/opencvsharp.mac.samples.console/opencvsharp.mac.samples.console.csproj
-dotnet run --project samples/opencvsharp.mac.samples.workbench.avalonia/opencvsharp.mac.samples.workbench.avalonia.csproj
-dotnet run --project samples/opencvsharp.mac.samples.location.avalonia/opencvsharp.mac.samples.location.avalonia.csproj
+dotnet run --project samples/opencvsharp.crossplatform.samples.console/opencvsharp.crossplatform.samples.console.csproj
+dotnet run --project samples/opencvsharp.crossplatform.samples.workbench.avalonia/opencvsharp.crossplatform.samples.workbench.avalonia.csproj
+dotnet run --project samples/opencvsharp.crossplatform.samples.location.avalonia/opencvsharp.crossplatform.samples.location.avalonia.csproj
+dotnet test tests/opencvsharp.crossplatform.core.tests/opencvsharp.crossplatform.core.tests.csproj
 ```
 
-控制台演示会输出示例图与边缘检测结果。两个 Avalonia 演示会在启动时自动加载 `libOpenCvSharpExtern.dylib`。
+控制台演示会输出示例图与边缘检测结果。Avalonia 演示在 macOS 上启动时会加载本地 `libOpenCvSharpExtern.dylib`；在 Windows 上由 NuGet 运行时包提供 `OpenCvSharpExtern.dll`。

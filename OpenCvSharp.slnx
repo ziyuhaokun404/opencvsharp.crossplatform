@@ -1,12 +1,12 @@
 <Solution>
   <Folder Name="/Libraries/">
-    <Project Path="src/opencvsharp.mac.core/opencvsharp.mac.core.csproj" />
+    <Project Path="src/opencvsharp.crossplatform.core/opencvsharp.crossplatform.core.csproj" />
   </Folder>
   <Folder Name="/Samples/">
-    <Project Path="samples/opencvsharp.mac.samples.shared/opencvsharp.mac.samples.shared.csproj" />
-    <Project Path="samples/opencvsharp.mac.samples.console/opencvsharp.mac.samples.console.csproj" />
-    <Project Path="samples/opencvsharp.mac.samples.workbench.avalonia/opencvsharp.mac.samples.workbench.avalonia.csproj" />
-    <Project Path="samples/opencvsharp.mac.samples.location.avalonia/opencvsharp.mac.samples.location.avalonia.csproj" />
+    <Project Path="samples/opencvsharp.crossplatform.samples.shared/opencvsharp.crossplatform.samples.shared.csproj" />
+    <Project Path="samples/opencvsharp.crossplatform.samples.console/opencvsharp.crossplatform.samples.console.csproj" />
+    <Project Path="samples/opencvsharp.crossplatform.samples.workbench.avalonia/opencvsharp.crossplatform.samples.workbench.avalonia.csproj" />
+    <Project Path="samples/opencvsharp.crossplatform.samples.location.avalonia/opencvsharp.crossplatform.samples.location.avalonia.csproj" />
   </Folder>
   <Folder Name="/Solution Items/">
     <File Path="README.md" />
@@ -18,6 +18,6 @@
     <File Path="scripts/stage-native-runtime.sh" />
   </Folder>
   <Folder Name="/Tests/">
-    <Project Path="tests/opencvsharp.mac.core.tests/opencvsharp.mac.core.tests.csproj" />
+    <Project Path="tests/opencvsharp.crossplatform.core.tests/opencvsharp.crossplatform.core.tests.csproj" />
   </Folder>
 </Solution>

@@ -1,5 +1,6 @@
 <Project>
-  <PropertyGroup>
+  <!-- macOS: self-built libOpenCvSharpExtern.dylib under build/native/{rid}/ -->
+  <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
     <OpenCvSharpNativeLibraryFileName>libOpenCvSharpExtern.dylib</OpenCvSharpNativeLibraryFileName>
 
     <_Arch>$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture)</_Arch>
@@ -8,5 +9,20 @@
 
     <OpenCvSharpNativeRuntimePath>$(MSBuildThisFileDirectory)build/native/$(OpenCvSharpNativeRuntimeRid)/$(OpenCvSharpNativeLibraryFileName)</OpenCvSharpNativeRuntimePath>
     <OpenCvSharpNativeResolvedPath Condition="Exists('$(OpenCvSharpNativeRuntimePath)')">$(OpenCvSharpNativeRuntimePath)</OpenCvSharpNativeResolvedPath>
+
+    <UseLocalOpenCvSharpNativeRuntime Condition="'$(UseLocalOpenCvSharpNativeRuntime)' == ''">true</UseLocalOpenCvSharpNativeRuntime>
   </PropertyGroup>
+
+  <!-- Windows: official OpenCvSharp NuGet native runtimes -->
+  <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+    <UseLocalOpenCvSharpNativeRuntime>false</UseLocalOpenCvSharpNativeRuntime>
+
+    <_WinArch>$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture)</_WinArch>
+    <OpenCvSharpWindowsRuntimePackage Condition="'$(_WinArch)' == 'Arm64'">OpenCvSharp4.runtime.win-arm64</OpenCvSharpWindowsRuntimePackage>
+    <OpenCvSharpWindowsRuntimePackage Condition="'$(OpenCvSharpWindowsRuntimePackage)' == ''">OpenCvSharp4.runtime.win</OpenCvSharpWindowsRuntimePackage>
+  </PropertyGroup>
+
+  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Windows')) and '$(OpenCvSharpWindowsRuntimePackage)' != ''">
+    <PackageReference Include="$(OpenCvSharpWindowsRuntimePackage)" />
+  </ItemGroup>
 </Project>

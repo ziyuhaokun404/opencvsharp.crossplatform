@@ -1,0 +1,797 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:OpenCvSharp.CrossPlatform.Samples.Location.Avalonia.ViewModels"
+        xmlns:matching="using:OpenCvSharp.CrossPlatform.Core"
+        xmlns:conv="using:OpenCvSharp.CrossPlatform.Samples.Location.Avalonia.Converters"
+        xmlns:ctrl="using:OpenCvSharp.CrossPlatform.Samples.Location.Avalonia.Controls"
+        x:Class="OpenCvSharp.CrossPlatform.Samples.Location.Avalonia.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Width="1280"
+        Height="820"
+        MinWidth="1080"
+        MinHeight="700"
+        Title="OpenCvSharp 模板匹配演示"
+        Background="{DynamicResource AppSurfaceBrush}">
+  <Window.Styles>
+    <!-- Typography -->
+    <Style Selector="TextBlock.h1">
+      <Setter Property="FontSize" Value="15" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    </Style>
+    <Style Selector="TextBlock.sectionTitle">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{DynamicResource TextBodyBrush}" />
+    </Style>
+    <Style Selector="TextBlock.sidebarTitle">
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    </Style>
+    <Style Selector="TextBlock.caption">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+    </Style>
+    <Style Selector="TextBlock.paramLabel">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="TextBlock.paramValue">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="Foreground" Value="{DynamicResource TextBodyBrush}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="TextAlignment" Value="Right" />
+    </Style>
+    <Style Selector="TextBlock.metricLabel">
+      <Setter Property="FontSize" Value="10" />
+      <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+    </Style>
+    <Style Selector="TextBlock.metricValue">
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+      <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+    <Style Selector="TextBlock.bodySmall">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="Foreground" Value="{DynamicResource TextBodyBrush}" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+
+    <!-- Sidebar cards -->
+    <Style Selector="Border.sideCard">
+      <Setter Property="Background" Value="{DynamicResource CardSurfaceBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Padding" Value="8" />
+    </Style>
+    <Style Selector="Border.metricTile">
+      <Setter Property="Background" Value="{DynamicResource ControlSurfaceBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource DividerBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="5" />
+      <Setter Property="Padding" Value="6,4" />
+    </Style>
+
+    <!-- Buttons -->
+    <Style Selector="Button">
+      <Setter Property="MinHeight" Value="28" />
+      <Setter Property="Padding" Value="10,4" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Background" Value="{DynamicResource ControlSurfaceBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Foreground" Value="{DynamicResource TextBodyBrush}" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.primary">
+      <Setter Property="Background" Value="{DynamicResource PrimaryBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+    </Style>
+    <Style Selector="Button.compact">
+      <Setter Property="MinHeight" Value="26" />
+      <Setter Property="Padding" Value="8,3" />
+      <Setter Property="FontSize" Value="11" />
+    </Style>
+    <Style Selector="Button.icon">
+      <Setter Property="Width" Value="28" />
+      <Setter Property="Height" Value="28" />
+      <Setter Property="MinHeight" Value="28" />
+      <Setter Property="Padding" Value="0" />
+    </Style>
+
+    <!-- Inputs -->
+    <Style Selector="TextBox">
+      <Setter Property="MinHeight" Value="28" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Background" Value="{DynamicResource ControlSurfaceBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextBodyBrush}" />
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="TextAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="ComboBox">
+      <Setter Property="MinHeight" Value="28" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Background" Value="{DynamicResource ControlSurfaceBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextBodyBrush}" />
+      <Setter Property="FontSize" Value="12" />
+    </Style>
+    <Style Selector="ComboBox.toolbar">
+      <Setter Property="MinHeight" Value="26" />
+      <Setter Property="MinWidth" Value="100" />
+      <Setter Property="FontSize" Value="12" />
+    </Style>
+
+    <!-- Slider compact -->
+    <Style Selector="Slider.compact">
+      <Setter Property="MinHeight" Value="26" />
+      <Setter Property="Padding" Value="0,2" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+    </Style>
+    <Style Selector="Slider.compact:pointerover">
+      <Setter Property="Opacity" Value="0.94" />
+    </Style>
+    <Style Selector="Slider.compact:disabled">
+      <Setter Property="Opacity" Value="0.55" />
+    </Style>
+    <Style Selector="Slider.compact /template/ Thumb">
+      <Setter Property="Width" Value="14" />
+      <Setter Property="Height" Value="14" />
+      <Setter Property="Background" Value="{DynamicResource PrimaryBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource CardSurfaceBrush}" />
+      <Setter Property="BorderThickness" Value="2" />
+      <Setter Property="CornerRadius" Value="7" />
+    </Style>
+
+    <!-- Expander -->
+    <Style Selector="Expander">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+    </Style>
+    <Style Selector="Expander /template/ ToggleButton">
+      <Setter Property="Padding" Value="8,6" />
+      <Setter Property="Background" Value="{DynamicResource ExpanderHeaderBrush}" />
+      <Setter Property="CornerRadius" Value="6" />
+    </Style>
+
+    <!-- CheckBox compact -->
+    <Style Selector="CheckBox.compact">
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Padding" Value="4,0,0,0" />
+      <Setter Property="FontSize" Value="11" />
+    </Style>
+  </Window.Styles>
+
+  <Grid RowDefinitions="44,*,22">
+
+    <!-- ═══════════════════ 工具栏 (44px) ═══════════════════ -->
+    <Border Grid.Row="0"
+            Background="{DynamicResource ToolbarSurfaceBrush}"
+            BorderBrush="{DynamicResource DividerBrush}"
+            BorderThickness="0,0,0,1">
+      <Grid ColumnDefinitions="Auto,Auto,*,Auto" Margin="10,0" ColumnSpacing="8">
+
+        <!-- 左组：导入操作 -->
+        <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center"
+                    IsEnabled="{Binding IsReady}">
+          <Button Command="{Binding ImportSourceCommand}"
+                  Classes="icon"
+                  ToolTip.Tip="导入源图">
+            <Viewbox Width="17" Height="17">
+              <Canvas Width="24" Height="24">
+                <Path Data="M5 6.5C5 5.67 5.67 5 6.5 5h11c0.83 0 1.5 0.67 1.5 1.5v11c0 0.83 -0.67 1.5 -1.5 1.5h-11C5.67 19 5 18.33 5 17.5z"
+                      Fill="Transparent"
+                      Stroke="{DynamicResource TextBodyBrush}"
+                      StrokeThickness="1.8" />
+                <Ellipse Canvas.Left="8.1"
+                         Canvas.Top="8"
+                         Width="2.8"
+                         Height="2.8"
+                         Fill="{DynamicResource TextBodyBrush}" />
+                <Path Data="M6.5 16.4l3.6 -3.5l2.6 2.5l1.7 -1.8l3.2 3.3"
+                      Fill="Transparent"
+                      Stroke="{DynamicResource TextBodyBrush}"
+                      StrokeThickness="1.8"
+                      StrokeLineCap="Round" />
+              </Canvas>
+            </Viewbox>
+          </Button>
+          <Button Click="CreateRoiButton_Click"
+                  Classes="icon"
+                  ToolTip.Tip="选区取样">
+            <Viewbox Width="17" Height="17">
+              <Canvas Width="24" Height="24">
+                <Path Data="M7 4v3.7H4 M17 4v3.7h3 M7 20v-3.7H4 M17 20v-3.7h3"
+                      Fill="Transparent"
+                      Stroke="{DynamicResource TextBodyBrush}"
+                      StrokeThickness="1.9"
+                      StrokeLineCap="Round" />
+                <Path Data="M8.6 8.6h6.8v6.8H8.6z"
+                      Fill="Transparent"
+                      Stroke="{DynamicResource PrimaryBrush}"
+                      StrokeThickness="1.7"
+                      Opacity="0.9" />
+              </Canvas>
+            </Viewbox>
+          </Button>
+        </StackPanel>
+
+        <!-- 分隔线 -->
+        <Border Grid.Column="1" Width="1" Margin="4,8" Background="{DynamicResource DividerBrush}" />
+
+        <!-- 中组：算法选择器 -->
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
+                    IsEnabled="{Binding IsReady}">
+          <TextBlock Text="算法" Classes="caption" VerticalAlignment="Center" Margin="0,0,2,0" />
+          <ComboBox Classes="toolbar"
+                    ItemsSource="{Binding Algorithms}"
+                    SelectedItem="{Binding SelectedAlgorithm, Mode=TwoWay}" />
+        </StackPanel>
+
+        <!-- 右组：训练 + 运行 -->
+        <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center"
+                    IsEnabled="{Binding IsReady}">
+          <Button Content="训练模板"
+                  Command="{Binding TrainTemplateCommand}"
+                  IsVisible="{Binding IsContourTrainingEnabled}"
+                  Classes="compact" />
+          <Button Content="折线图"
+                  Click="OpenBenchmarkChartButton_Click"
+                  Classes="compact"
+                  IsVisible="{Binding HasBenchmarkSummary}" />
+          <Button Content="{Binding StabilityBenchmarkButtonText}"
+                  Command="{Binding RunBenchmarkCommand}"
+                  IsEnabled="{Binding !IsBenchmarking}"
+                  Classes="compact"
+                  PointerPressed="StabilityBenchmarkButton_PointerPressed" />
+          <Button Content="{Binding DetailedBenchmarkButtonText}"
+                  Command="{Binding RunDetailedBenchmarkCommand}"
+                  IsEnabled="{Binding !IsBenchmarking}"
+                  Classes="compact"
+                  PointerPressed="DetailedBenchmarkButton_PointerPressed" />
+          <Button Content="分析结果"
+                  Click="OpenBenchmarkDetailButton_Click"
+                  Classes="compact"
+                  IsVisible="{Binding HasDetailedBenchmarkResult}" />
+          <Button Classes="primary" Content="▶ 运行" Command="{Binding RunMatchCommand}"
+                  Padding="14,4" FontWeight="SemiBold" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- ═══════════════════ 主体区 ═══════════════════ -->
+    <Grid Grid.Row="1" ColumnDefinitions="280,*,280"
+          IsEnabled="{Binding IsReady}">
+
+      <!-- ─── 左：结果与分析栏 ─── -->
+      <Border Grid.Column="0"
+              Background="{DynamicResource PanelSurfaceBrush}"
+              BorderBrush="{DynamicResource DividerBrush}"
+              BorderThickness="0,0,1,0">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+          <StackPanel Margin="10,8" Spacing="8">
+
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+              <TextBlock Text="结果面板" Classes="sidebarTitle" />
+              <TextBlock Grid.Column="1" Text="{Binding SourceSizeText}"
+                         Classes="caption"
+                         VerticalAlignment="Center"
+                         IsVisible="{Binding SourceSizeText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            </Grid>
+
+            <!-- ══ 模板与结果 ══ -->
+            <Border Classes="sideCard">
+              <StackPanel Spacing="10">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="模板与结果" Classes="sectionTitle" />
+                  <TextBlock Grid.Column="1" Text="{Binding MatchCountText}"
+                             Classes="caption"
+                             FontWeight="SemiBold"
+                             VerticalAlignment="Center" />
+                </Grid>
+
+                <Border Height="96"
+                        Background="{DynamicResource ImageWellBrush}"
+                        BorderBrush="{DynamicResource DividerBrush}"
+                        BorderThickness="1"
+                        ClipToBounds="True"
+                        CornerRadius="4">
+                  <Image Source="{Binding TemplateImageSource}" Stretch="Uniform" Margin="4" />
+                </Border>
+
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                  <StackPanel Spacing="1">
+                    <TextBlock Text="最佳得分" Classes="metricLabel" />
+                    <TextBlock Text="{Binding BestScoreText}" Classes="metricValue" />
+                  </StackPanel>
+                  <StackPanel Grid.Column="1" Spacing="1">
+                    <TextBlock Text="匹配数量" Classes="metricLabel" />
+                    <TextBlock Text="{Binding MatchCountText}" Classes="metricValue" />
+                  </StackPanel>
+                </Grid>
+              </StackPanel>
+            </Border>
+
+            <!-- ══ 不可修改参数预览 ══ -->
+            <Border Classes="sideCard">
+              <StackPanel Spacing="5">
+                <TextBlock Text="参数预览" Classes="sectionTitle" />
+                <Grid ColumnDefinitions="Auto,*,Auto,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="8" RowSpacing="3">
+                  <TextBlock Text="算法" Classes="paramLabel" />
+                  <TextBlock Grid.Column="1" Text="{Binding SelectedAlgorithm}" Classes="paramValue" TextAlignment="Left" TextTrimming="CharacterEllipsis" />
+
+                  <TextBlock Grid.Column="2" Text="方法" Classes="paramLabel" />
+                  <TextBlock Grid.Column="3" Text="{Binding SelectedMethod}" Classes="paramValue" TextAlignment="Left" TextTrimming="CharacterEllipsis" />
+
+                  <TextBlock Grid.Row="1" Text="阈值" Classes="paramLabel" />
+                  <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Threshold, StringFormat={}{0:F2}}" Classes="paramValue" TextAlignment="Left" />
+
+                  <TextBlock Grid.Row="1" Grid.Column="2" Text="灰度" Classes="paramLabel" />
+                  <TextBlock Grid.Row="1" Grid.Column="3" Text="{Binding UseGrayscale}" Classes="paramValue" TextAlignment="Left" />
+
+                  <TextBlock Grid.Row="2" Text="NMS" Classes="paramLabel" />
+                  <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding NmsOverlapThreshold, StringFormat={}{0:F2}}" Classes="paramValue" TextAlignment="Left" />
+                </Grid>
+              </StackPanel>
+            </Border>
+
+            <!-- ══ 轮廓参数预览 ══ -->
+            <Border Classes="sideCard"
+                    IsVisible="{Binding IsContourTrainingEnabled}">
+              <StackPanel Spacing="7">
+                <TextBlock Text="轮廓参数预览" Classes="sectionTitle" />
+                <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="10" RowSpacing="5">
+                  <TextBlock Text="最小面积" Classes="paramLabel" />
+                  <TextBlock Grid.Column="1" Text="{Binding MinContourArea, StringFormat={}{0:F0}}" Classes="paramValue" TextAlignment="Left" />
+
+                  <TextBlock Grid.Row="1" Text="Canny低" Classes="paramLabel" />
+                  <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding CannyLowThreshold, StringFormat={}{0:F0}}" Classes="paramValue" TextAlignment="Left" />
+
+                  <TextBlock Grid.Row="2" Text="Canny高" Classes="paramLabel" />
+                  <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding CannyHighThreshold, StringFormat={}{0:F0}}" Classes="paramValue" TextAlignment="Left" />
+
+                  <TextBlock Grid.Row="3" Text="梯度系数" Classes="paramLabel" />
+                  <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding GradientThresholdScale, StringFormat={}{0:F1}}" Classes="paramValue" TextAlignment="Left" />
+
+                  <TextBlock Grid.Row="4" Text="闭运算" Classes="paramLabel" />
+                  <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding CloseIterations, StringFormat={}{0:F0}}" Classes="paramValue" TextAlignment="Left" />
+
+                  <TextBlock Grid.Row="5" Text="轮廓上限" Classes="paramLabel" />
+                  <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding MaxTemplateContours, StringFormat={}{0:F0}}" Classes="paramValue" TextAlignment="Left" />
+
+                  <TextBlock Grid.Row="6" Text="覆盖率" Classes="paramLabel" />
+                  <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding MinimumTemplateContourCoverage, StringFormat={}{0:F2}}" Classes="paramValue" TextAlignment="Left" />
+
+                  <TextBlock Grid.Row="7" Text="距离容差" Classes="paramLabel" />
+                  <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding EdgeDistanceTolerance, StringFormat={}{0:F0}}" Classes="paramValue" TextAlignment="Left" />
+                </Grid>
+              </StackPanel>
+            </Border>
+
+            <!-- ══ 金字塔参数 ══ -->
+            <Border Classes="sideCard"
+                    IsVisible="{Binding PyramidInfoVisible}">
+              <StackPanel Spacing="6">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                  <TextBlock Text="金字塔参数" Classes="sectionTitle" />
+                  <Border Grid.Column="1"
+                          Background="{DynamicResource BadgeSurfaceBrush}"
+                          BorderBrush="{DynamicResource BadgeBorderBrush}"
+                          BorderThickness="1"
+                          CornerRadius="9"
+                          Padding="6,0">
+                    <TextBlock Text="{Binding PyramidModeText}"
+                               FontSize="10"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource BadgeTextBrush}" />
+                  </Border>
+                </Grid>
+
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="6">
+                  <Border Classes="metricTile">
+                    <StackPanel Spacing="1">
+                      <TextBlock Text="缩放" Classes="metricLabel" />
+                      <TextBlock Text="{Binding PyramidScaleText}" Classes="metricValue" />
+                    </StackPanel>
+                  </Border>
+                  <Border Grid.Column="1" Classes="metricTile">
+                    <StackPanel Spacing="1">
+                      <TextBlock Text="结果矩阵" Classes="metricLabel" />
+                      <TextBlock Text="{Binding PyramidResultText}" Classes="metricValue" />
+                    </StackPanel>
+                  </Border>
+                </Grid>
+
+                <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="8" RowSpacing="3">
+                  <TextBlock Text="源图" Classes="paramLabel" />
+                  <TextBlock Grid.Column="1" Text="{Binding PyramidSourceText}" Classes="paramValue" TextAlignment="Left" TextTrimming="CharacterEllipsis" />
+
+                  <TextBlock Grid.Row="1" Text="模板" Classes="paramLabel" />
+                  <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding PyramidTemplateText}" Classes="paramValue" TextAlignment="Left" TextTrimming="CharacterEllipsis" />
+
+                  <TextBlock Grid.Row="2" Text="阈值" Classes="paramLabel" />
+                  <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding PyramidThresholdText}" Classes="paramValue" TextAlignment="Left" />
+
+                  <TextBlock Grid.Row="3" Text="最小边" Classes="paramLabel" />
+                  <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding PyramidMinTemplateEdgeText}" Classes="paramValue" TextAlignment="Left" />
+                </Grid>
+
+              </StackPanel>
+            </Border>
+
+            <!-- ══ 性能分析 ══ -->
+            <Border Background="{DynamicResource CardSurfaceBrush}"
+                    BorderBrush="{DynamicResource ControlBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    Padding="8"
+                    IsVisible="{Binding ProfileVisible}">
+              <StackPanel Spacing="6">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="性能分析" Classes="sectionTitle" />
+                  <TextBlock Grid.Column="1" Text="{Binding ProfileTotalText}"
+                             FontSize="12" FontWeight="Bold"
+                             Foreground="{DynamicResource PrimaryBrush}"
+                             VerticalAlignment="Center" />
+                </Grid>
+                <ItemsControl ItemsSource="{Binding ProfileSteps}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="matching:ProfileStepViewModel">
+                      <Grid RowDefinitions="Auto,Auto" Margin="0,1">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                          <TextBlock Text="{Binding Name}"
+                                     FontSize="12"
+                                     Foreground="{DynamicResource TextBodyBrush}"
+                                     TextTrimming="CharacterEllipsis" />
+                          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2"
+                                      VerticalAlignment="Center">
+                            <TextBlock Text="{Binding TimeText}"
+                                       FontSize="12" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                       FontFamily="Menlo, Consolas, monospace" />
+                            <TextBlock Text="ms" FontSize="10"
+                                       Foreground="{DynamicResource TextMutedBrush}"
+                                       VerticalAlignment="Bottom" Margin="0,0,0,1" />
+                          </StackPanel>
+                        </Grid>
+                        <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="6" Margin="0,2,0,0">
+                          <Border Height="4" CornerRadius="2"
+                                  Background="{DynamicResource ExpanderHeaderBrush}"
+                                  HorizontalAlignment="Stretch">
+                            <Border Height="4" CornerRadius="2"
+                                    Background="{DynamicResource PrimaryBrush}"
+                                    Opacity="0.6"
+                                    HorizontalAlignment="Left"
+                                    Width="{Binding BarFraction, Converter={x:Static conv:FractionToWidthConverter.Instance}}" />
+                          </Border>
+                          <TextBlock Grid.Column="1"
+                                     Text="{Binding Detail}"
+                                     FontSize="10"
+                                     Foreground="{DynamicResource TextMutedBrush}"
+                                     IsVisible="{Binding Detail, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                     TextTrimming="CharacterEllipsis"
+                                     MaxWidth="90" />
+                        </Grid>
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </Border>
+
+            <!-- ══ 稳定性分析 ══ -->
+            <Border Classes="sideCard"
+                    IsVisible="{Binding BenchmarkVisible}">
+              <StackPanel Spacing="6">
+                <TextBlock Text="稳定性分析" Classes="sectionTitle" />
+
+                <TextBlock Text="{Binding BenchmarkResultText}"
+                           Classes="bodySmall"
+                           IsVisible="{Binding !HasBenchmarkSummary}" />
+
+                <StackPanel Spacing="6" IsVisible="{Binding HasBenchmarkSummary}">
+                  <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="6" RowSpacing="6">
+                    <Border Classes="metricTile">
+                      <StackPanel Spacing="1">
+                        <TextBlock Text="平均" Classes="metricLabel" />
+                        <TextBlock Text="{Binding BenchmarkSummary.AverageText}" Classes="metricValue" />
+                      </StackPanel>
+                    </Border>
+                    <Border Grid.Column="1" Classes="metricTile">
+                      <StackPanel Spacing="1">
+                        <TextBlock Text="P95" Classes="metricLabel" />
+                        <TextBlock Text="{Binding BenchmarkSummary.P95Text}" Classes="metricValue" />
+                      </StackPanel>
+                    </Border>
+                    <Border Grid.Row="1" Classes="metricTile">
+                      <StackPanel Spacing="1">
+                        <TextBlock Text="标准差" Classes="metricLabel" />
+                        <TextBlock Text="{Binding BenchmarkSummary.StandardDeviationText}" Classes="metricValue" />
+                      </StackPanel>
+                    </Border>
+                    <Border Grid.Row="1" Grid.Column="1" Classes="metricTile">
+                      <StackPanel Spacing="1">
+                        <TextBlock Text="稳定性" Classes="metricLabel" />
+                        <TextBlock Text="{Binding BenchmarkSummary.StabilityText}" Classes="metricValue" />
+                      </StackPanel>
+                    </Border>
+                  </Grid>
+
+                  <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="8" RowSpacing="3">
+                    <TextBlock Text="范围" Classes="paramLabel" />
+                    <TextBlock Grid.Column="1" Text="{Binding BenchmarkSummary.RangeText}" Classes="paramValue" TextAlignment="Left" />
+
+                    <TextBlock Grid.Row="1" Text="最佳位置" Classes="paramLabel" />
+                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding BenchmarkSummary.BestLocationText}" Classes="paramValue" TextAlignment="Left" />
+
+                    <TextBlock Grid.Row="2" Text="匹配数量" Classes="paramLabel" />
+                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding BenchmarkSummary.MatchCountText}" Classes="paramValue" TextAlignment="Left" />
+
+                    <TextBlock Grid.Row="3" Text="波动" Classes="paramLabel" />
+                    <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding BenchmarkSummary.ResultVarietyText}" Classes="paramValue" TextAlignment="Left" />
+                  </Grid>
+
+                  <TextBlock Text="{Binding BenchmarkSummary.ScoreDriftText}" Classes="caption" />
+                </StackPanel>
+              </StackPanel>
+            </Border>
+
+          </StackPanel>
+        </ScrollViewer>
+      </Border>
+
+      <!-- ─── 中：画布区 ─── -->
+      <Grid Grid.Column="1" RowDefinitions="30,*">
+        <!-- 画布 Header -->
+        <Border Background="{DynamicResource PanelSurfaceBrush}"
+                BorderBrush="{DynamicResource DividerBrush}"
+                BorderThickness="0,0,0,1">
+          <Grid Margin="12,0" ColumnDefinitions="Auto,*,Auto">
+            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+              <TextBlock Text="源图" Classes="caption" FontWeight="SemiBold" />
+              <TextBlock Text="{Binding SourceSizeText}"
+                         Classes="caption"
+                         IsVisible="{Binding SourceSizeText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            </StackPanel>
+            <!-- 匹配数量 Badge -->
+            <Border Grid.Column="2"
+                    Background="{DynamicResource BadgeSurfaceBrush}"
+                    BorderBrush="{DynamicResource BadgeBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="10"
+                    Padding="8,1"
+                    IsVisible="{Binding MatchCountBadgeVisible}"
+                    VerticalAlignment="Center">
+              <StackPanel Orientation="Horizontal" Spacing="4">
+                <TextBlock Text="匹配" FontSize="10" Foreground="{DynamicResource BadgeTextBrush}" />
+                <TextBlock Text="{Binding MatchCountText}" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource BadgeTextBrush}" />
+              </StackPanel>
+            </Border>
+          </Grid>
+        </Border>
+
+        <!-- 画布主体 -->
+        <Grid Grid.Row="1"
+              Name="SourceRoiSurface"
+              ClipToBounds="True"
+              Background="{DynamicResource ImageWellBrush}">
+          <Canvas Name="ImageViewportLayer"
+                  Background="Transparent">
+            <Image Name="SourceRoiImage"
+                   Source="{Binding SourceImageSource}"
+                   Stretch="Fill" />
+          </Canvas>
+          <ctrl:MatchOverlayControl Name="MatchOverlayLayer" IsHitTestVisible="False" />
+          <Canvas Name="SourceRoiLayer" IsVisible="False" Background="Transparent">
+            <Canvas Name="SourceRoiAdorner" Width="160" Height="100" RenderTransformOrigin="0.5,0.5">
+              <Canvas.RenderTransform>
+                <RotateTransform Angle="0" />
+              </Canvas.RenderTransform>
+              <Border Name="SourceRoiOverlay"
+                      Width="160"
+                      Height="100"
+                      BorderBrush="{DynamicResource PrimaryBrush}"
+                      Background="#332563EB"
+                      BorderThickness="2"
+                      Cursor="SizeAll"
+                      PointerPressed="SourceRoiAdorner_PointerPressed"
+                      PointerMoved="SourceRoiAdorner_PointerMoved"
+                      PointerReleased="SourceRoiAdorner_PointerReleased" />
+              <Rectangle Name="SourceRoiResizeHandle"
+                         Width="12"
+                         Height="12"
+                         Canvas.Left="154"
+                         Canvas.Top="94"
+                         Fill="{DynamicResource PrimaryBrush}"
+                         Stroke="{DynamicResource PrimaryTextBrush}"
+                         StrokeThickness="2"
+                         Cursor="BottomRightCorner"
+                         PointerPressed="SourceRoiResizeHandle_PointerPressed"
+                         PointerMoved="SourceRoiResizeHandle_PointerMoved"
+                         PointerReleased="SourceRoiResizeHandle_PointerReleased" />
+              <Ellipse Name="SourceRoiRotateHandle"
+                       Width="12"
+                       Height="12"
+                       Canvas.Left="74"
+                       Canvas.Top="-22"
+                       Fill="{DynamicResource PrimaryBrush}"
+                       Stroke="{DynamicResource PrimaryTextBrush}"
+                       StrokeThickness="2"
+                       Cursor="Hand"
+                       PointerPressed="SourceRoiRotateHandle_PointerPressed"
+                       PointerMoved="SourceRoiRotateHandle_PointerMoved"
+                       PointerReleased="SourceRoiRotateHandle_PointerReleased" />
+            </Canvas>
+          </Canvas>
+        </Grid>
+      </Grid>
+
+      <!-- ─── 右：可编辑参数栏 ─── -->
+      <Border Grid.Column="2"
+              Background="{DynamicResource PanelSurfaceBrush}"
+              BorderBrush="{DynamicResource DividerBrush}"
+              BorderThickness="1,0,0,0">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+          <StackPanel Margin="10,8" Spacing="8">
+
+            <TextBlock Text="参数面板" Classes="sidebarTitle" />
+
+            <!-- ══ 常用匹配参数 ══ -->
+            <Border Classes="sideCard">
+              <StackPanel Spacing="12">
+                <TextBlock Text="匹配参数" Classes="sectionTitle" />
+                <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="6">
+                  <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="8">
+                    <TextBlock Text="方法" Classes="paramLabel" />
+                    <ComboBox Grid.Column="1"
+                              MinWidth="160"
+                              ItemsSource="{Binding Methods}"
+                              SelectedItem="{Binding SelectedMethod, Mode=TwoWay}"
+                              IsEnabled="{Binding IsTemplateMatchMethodEnabled}" />
+                  </Grid>
+                  <Grid Grid.Row="1" ColumnDefinitions="Auto,Auto" ColumnSpacing="8">
+                    <TextBlock Text="阈值" Classes="paramLabel" />
+                    <TextBlock Grid.Column="1" Text="{Binding Threshold, StringFormat={}{0:F2}}"
+                               Classes="paramValue"
+                               TextAlignment="Left" />
+                  </Grid>
+                  <Grid Grid.Row="2" ColumnDefinitions="*,58" ColumnSpacing="10">
+                    <Slider Minimum="0" Maximum="1" TickFrequency="0.01"
+                            Value="{Binding Threshold, Mode=TwoWay}" Classes="compact" VerticalAlignment="Center" />
+                    <TextBox Grid.Column="1" Text="{Binding ThresholdText, Mode=TwoWay}"
+                             HorizontalContentAlignment="Center"
+                             Padding="2,1"
+                             Height="26"
+                             MinHeight="26" />
+                  </Grid>
+                </Grid>
+                <Border Height="1" Background="{DynamicResource DividerBrush}" Opacity="0.7" />
+                <CheckBox Content="使用灰度图"
+                          IsChecked="{Binding UseGrayscale, Mode=TwoWay}"
+                          Classes="compact"
+                          Padding="0"
+                          VerticalAlignment="Center" />
+              </StackPanel>
+            </Border>
+
+            <!-- ══ 轮廓参数 ══ -->
+            <Border Background="{DynamicResource CardSurfaceBrush}"
+                    BorderBrush="{DynamicResource ControlBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    Padding="8"
+                    IsVisible="{Binding IsContourTrainingEnabled}">
+              <StackPanel Spacing="6">
+                <TextBlock Text="轮廓与边缘参数" Classes="sectionTitle" />
+                  <Grid ColumnDefinitions="68,*,38" ColumnSpacing="4">
+                    <TextBlock Text="最小面积" Classes="paramLabel" />
+                    <Slider Grid.Column="1" Minimum="1" Maximum="500" TickFrequency="5"
+                            Value="{Binding MinContourArea, Mode=TwoWay}" Classes="compact" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="2" Text="{Binding MinContourArea, StringFormat={}{0:F0}}" Classes="paramValue" />
+                  </Grid>
+                  <Grid ColumnDefinitions="68,*,38" ColumnSpacing="4">
+                    <TextBlock Text="Canny低" Classes="paramLabel" />
+                    <Slider Grid.Column="1" Minimum="1" Maximum="255" TickFrequency="1"
+                            Value="{Binding CannyLowThreshold, Mode=TwoWay}" Classes="compact" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="2" Text="{Binding CannyLowThreshold, StringFormat={}{0:F0}}" Classes="paramValue" />
+                  </Grid>
+                  <Grid ColumnDefinitions="68,*,38" ColumnSpacing="4">
+                    <TextBlock Text="Canny高" Classes="paramLabel" />
+                    <Slider Grid.Column="1" Minimum="1" Maximum="255" TickFrequency="1"
+                            Value="{Binding CannyHighThreshold, Mode=TwoWay}" Classes="compact" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="2" Text="{Binding CannyHighThreshold, StringFormat={}{0:F0}}" Classes="paramValue" />
+                  </Grid>
+                  <Grid ColumnDefinitions="68,*,38" ColumnSpacing="4">
+                    <TextBlock Text="梯度系数" Classes="paramLabel" />
+                    <Slider Grid.Column="1" Minimum="0.1" Maximum="5.0" TickFrequency="0.1"
+                            Value="{Binding GradientThresholdScale, Mode=TwoWay}" Classes="compact" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="2" Text="{Binding GradientThresholdScale, StringFormat={}{0:F1}}" Classes="paramValue" />
+                  </Grid>
+                  <Grid ColumnDefinitions="68,*,38" ColumnSpacing="4">
+                    <TextBlock Text="闭运算" Classes="paramLabel" />
+                    <Slider Grid.Column="1" Minimum="0" Maximum="5" TickFrequency="1"
+                            Value="{Binding CloseIterations, Mode=TwoWay}" Classes="compact" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="2" Text="{Binding CloseIterations, StringFormat={}{0:F0}}" Classes="paramValue" />
+                  </Grid>
+                  <Grid ColumnDefinitions="68,*,38" ColumnSpacing="4">
+                    <TextBlock Text="轮廓上限" Classes="paramLabel" />
+                    <Slider Grid.Column="1" Minimum="1" Maximum="50" TickFrequency="1"
+                            Value="{Binding MaxTemplateContours, Mode=TwoWay}" Classes="compact" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="2" Text="{Binding MaxTemplateContours, StringFormat={}{0:F0}}" Classes="paramValue" />
+                  </Grid>
+                  <Grid ColumnDefinitions="68,*,38" ColumnSpacing="4">
+                    <TextBlock Text="覆盖率" Classes="paramLabel" ToolTip.Tip="候选位置至少需要命中的模板显著轮廓比例" />
+                    <Slider Grid.Column="1" Minimum="0.1" Maximum="0.95" TickFrequency="0.05"
+                            Value="{Binding MinimumTemplateContourCoverage, Mode=TwoWay}" Classes="compact" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="2" Text="{Binding MinimumTemplateContourCoverage, StringFormat={}{0:F2}}" Classes="paramValue" />
+                  </Grid>
+                  <Grid ColumnDefinitions="68,*,38" ColumnSpacing="4">
+                    <TextBlock Text="距离容差" Classes="paramLabel" />
+                    <Slider Grid.Column="1" Minimum="1" Maximum="30" TickFrequency="1"
+                            Value="{Binding EdgeDistanceTolerance, Mode=TwoWay}" Classes="compact" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="2" Text="{Binding EdgeDistanceTolerance, StringFormat={}{0:F0}}" Classes="paramValue" />
+                  </Grid>
+              </StackPanel>
+            </Border>
+
+            <!-- ══ 高级参数 ══ -->
+            <Border Background="{DynamicResource CardSurfaceBrush}"
+                    BorderBrush="{DynamicResource ControlBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    Padding="8">
+              <StackPanel Spacing="6">
+                <TextBlock Text="高级参数" Classes="sectionTitle" />
+                  <Grid ColumnDefinitions="68,*,38" ColumnSpacing="4">
+                    <TextBlock Text="NMS" Classes="paramLabel" ToolTip.Tip="重叠框抑制阈值，用于过滤重复匹配框" />
+                    <Slider Grid.Column="1" Minimum="0.0" Maximum="1.0" TickFrequency="0.05"
+                            Value="{Binding NmsOverlapThreshold, Mode=TwoWay}" Classes="compact" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="2" Text="{Binding NmsOverlapThreshold, StringFormat={}{0:F2}}" Classes="paramValue" />
+                  </Grid>
+              </StackPanel>
+            </Border>
+
+          </StackPanel>
+        </ScrollViewer>
+      </Border>
+    </Grid>
+
+    <!-- ═══════════════════ 状态栏 (22px) ═══════════════════ -->
+    <Border Grid.Row="2"
+            Background="{DynamicResource PanelSurfaceBrush}"
+            BorderBrush="{DynamicResource DividerBrush}"
+            BorderThickness="0,1,0,0">
+      <Grid Margin="12,0" ColumnDefinitions="*,Auto">
+        <TextBlock Text="{Binding StatusText}" Classes="caption" VerticalAlignment="Center"
+                   TextTrimming="CharacterEllipsis" />
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+          <ProgressBar Width="72"
+                       Height="4"
+                       IsIndeterminate="{Binding IsBusy}"
+                       IsVisible="{Binding IsBusy}" />
+          <TextBlock Text="运行中"
+                     Classes="caption"
+                     FontWeight="SemiBold"
+                     Foreground="{DynamicResource PrimaryBrush}"
+                     IsVisible="{Binding IsBusy}"
+                     VerticalAlignment="Center" />
+          <TextBlock Text="OpenCvSharp Cross-Platform"
+                     Classes="caption"
+                     VerticalAlignment="Center"
+                     IsVisible="{Binding IsReady}" />
+        </StackPanel>
+      </Grid>
+    </Border>
+  </Grid>
+</Window>

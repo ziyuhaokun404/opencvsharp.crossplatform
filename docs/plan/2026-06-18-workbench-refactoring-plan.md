@@ -2,7 +2,7 @@
 
 ## 背景
 
-`samples/opencvsharp.mac.samples.workbench.avalonia` 已经完成了一轮目录拆分：
+`samples/opencvsharp.crossplatform.samples.workbench.avalonia` 已经完成了一轮目录拆分：
 
 - `App/` 放置 Avalonia 启动入口
 - `Views/` 放置窗口和 AXAML
@@ -36,7 +36,7 @@
 ## 目标目录结构
 
 ```text
-samples/opencvsharp.mac.samples.workbench.avalonia/
+samples/opencvsharp.crossplatform.samples.workbench.avalonia/
 ├── App/
 │   ├── App.axaml
 │   ├── App.axaml.cs
@@ -116,7 +116,7 @@ samples/opencvsharp.mac.samples.workbench.avalonia/
 │   └── System/
 │       └── SystemClock.cs
 │
-└── opencvsharp.mac.samples.workbench.avalonia.csproj
+└── opencvsharp.crossplatform.samples.workbench.avalonia.csproj
 ```
 
 如果暂时不想大规模移动命名空间，可以先保留现有 `Views/`、`ViewModels/`、`Services/`、`Operators/` 目录，在第二阶段完成后再统一迁移到目标目录。优先级是边界清晰，不是目录一次到位。
@@ -372,7 +372,7 @@ public sealed class PipelineRunner
 当前项目没有专门测试项目。建议新增：
 
 ```text
-tests/opencvsharp.mac.samples.workbench.tests/
+tests/opencvsharp.crossplatform.samples.workbench.tests/
 ```
 
 优先覆盖 Application 和 Domain：

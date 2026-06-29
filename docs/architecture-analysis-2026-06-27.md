@@ -1,4 +1,4 @@
-# OpenCvSharp.mac 项目架构分析与优化建议
+# OpenCvSharp Cross-Platform 项目架构分析与优化建议
 
 > 分析日期：2026-06-27  
 > 分析范围：项目整体架构、分层、代码组织、构建系统
@@ -7,10 +7,10 @@
 
 ## 一、整体架构概览
 
-项目是一个 **macOS 专属的 OpenCV 封装工作区**，采用 mono-repo 模式组织：
+项目是一个 **跨平台（macOS + Windows）的 OpenCV 封装工作区**，采用 mono-repo 模式组织：
 
 ```
-opencvsharp.mac/
+opencvsharp.crossplatform/
 ├── .gitignore                  # 忽略 build/, bin/obj/, *.log, IDE, *.dylib, CMake 产物
 ├── Directory.Build.props       # MSBuild 本地原生运行时路径解析配置
 ├── Directory.Build.targets     # MSBuild 目标：将原生 dylib 复制到输出目录
@@ -35,8 +35,8 @@ opencvsharp.mac/
 │   └── bundle-native-runtime-macos.sh    # 自包含 bundle（递归复制 Homebrew 依赖 + install_name_tool 重写 + 签名）
 │
 ├── src/
-│   └── opencvsharp.mac.core/    ← 唯一核心库（C# 算法引擎）
-│       ├── opencvsharp.mac.core.csproj
+│   └── opencvsharp.crossplatform.core/    ← 唯一核心库（C# 算法引擎）
+│       ├── opencvsharp.crossplatform.core.csproj
 │       ├── TemplateLocators.cs             # ~1925 行（核心算法主力）
 │       ├── ContourModels.cs
 │       ├── ContourCaches.cs
@@ -46,15 +46,15 @@ opencvsharp.mac/
 │       └── PerformanceProfiler.cs
 │
 └── samples/
-    ├── opencvsharp.mac.samples.shared/        # 共享工具库（原生运行时解析）
+    ├── opencvsharp.crossplatform.samples.shared/        # 共享工具库（原生运行时解析）
     │   ├── OpenCvSharpNativeRuntime.cs
-    │   └── opencvsharp.mac.samples.shared.csproj
+    │   └── opencvsharp.crossplatform.samples.shared.csproj
     │
-    ├── opencvsharp.mac.samples.console/       # 控制台演示
+    ├── opencvsharp.crossplatform.samples.console/       # 控制台演示
     │   ├── Program.cs
-    │   └── opencvsharp.mac.samples.console.csproj
+    │   └── opencvsharp.crossplatform.samples.console.csproj
     │
-    ├── opencvsharp.mac.samples.location.avalonia/   ← 模板匹配可视化器 + 基准测试
+    ├── opencvsharp.crossplatform.samples.location.avalonia/   ← 模板匹配可视化器 + 基准测试
     │   ├── App/
     │   ├── Converters/            # FractionToWidthConverter
     │   ├── Services/             # PerformanceLogger, TemplateMatchSettingsStore, WindowImageFileDialogService
@@ -66,9 +66,9 @@ opencvsharp.mac/
     │   │   ├── Controls/              # MatchOverlayControl, TimingDistributionChart
     │   │   ├── BenchmarkChartWindow.cs
     │   │   └── BenchmarkDetailWindow.cs
-    │   └── opencvsharp.mac.samples.location.avalonia.csproj
+    │   └── opencvsharp.crossplatform.samples.location.avalonia.csproj
     │
-    └── opencvsharp.mac.samples.workbench.avalonia/   ← 图像处理工作台（进行中 DDD 重构）
+    └── opencvsharp.crossplatform.samples.workbench.avalonia/   ← 图像处理工作台（进行中 DDD 重构）
         ├── App/
         ├── Application/          # 用例层（PipelineRunner, ImageBuffer, WorkbenchHistory）
         │   ├── Imaging/          # ImageBuffer
@@ -92,7 +92,7 @@ opencvsharp.mac/
         │   ├── MainWindowViewModel.cs  # ~1105 行（重构目标：降至 250-400 行）
         │   └── Models/               # ImageAsset, Operator, Parameter, PipelineNode
         ├── Views/               # MainWindow.axaml(.cs)
-        └── opencvsharp.mac.samples.workbench.avalonia.csproj
+        └── opencvsharp.crossplatform.samples.workbench.avalonia.csproj
 ```
 
 ---
@@ -102,21 +102,23 @@ opencvsharp.mac/
 | 层次 | 项目/目录 | 当前状态 | 评价 |
 |------|----------|---------|------|
 | Platform / Native | `scripts/`, `ref/` | CMake + Homebrew + shell 脚本 | ✅ 完整，CMake 构建链清晰 |
-| Core Algorithm | `src/opencvsharp.mac.core` | Strategy 模式，7 个文件，无子命名空间 | ⚠️ 功能完整但 1925 行巨型文件未拆分 |
-| Domain | `workbench.sample/Domain/` | 部分存在（Operators, ValueRange） | ⚠️ DDD 重构进行中 |
-| Application | `workbench.sample/Application/` | 部分存在（PipelineRunner, ImageBuffer） | ⚠️ 存在但 ViewModel 仍直接调用底层 |
-| Infrastructure | `workbench.sample/Infrastructure/` | 部分存在（OpenCvImageCodec） | ⚠️ 仅一个实现 |
+| Core Algorithm | `src/opencvsharp.crossplatform.core` | Strategy 模式，7 个文件，无子命名空间 | ⚠️ 功能完整但 1925 行巨型文件未拆分 |
+| Domain | `samples.workbench.avalonia/Domain/` | 部分存在（Operators, ValueRange） | ⚠️ DDD 重构进行中 |
+| Application | `samples.workbench.avalonia/Application/` | 部分存在（PipelineRunner, ImageBuffer） | ⚠️ 存在但 ViewModel 仍直接调用底层 |
+| Infrastructure | `samples.workbench.avalonia/Infrastructure/` | 部分存在（OpenCvImageCodec） | ⚠️ 仅一个实现 |
 | Presentation | `location` + `workbench` samples | Avalonia UI，无 DI 容器 | ⚠️ MVVM 框架用但未用容器 |
 
 ### 依赖方向（当前）
 
 ```
-opencvsharp.mac.core ──────────→ OpenCvSharp4 NuGet + OpenCvSharp4.Runtime NuGet
+opencvsharp.crossplatform.core ──────────→ OpenCvSharp4 NuGet
+       │                                    (+ Windows: OpenCvSharp4.runtime.win NuGet)
+       │                                    (+ macOS: 自编译 libOpenCvSharpExtern.dylib)
        ↑
-opencvsharp.mac.samples.location.avalonia ──→ core + samples.shared + Avalonia
-opencvsharp.mac.samples.workbench.avalonia → samples.shared (无 core 引用)
-opencvsharp.mac.samples.console → samples.shared (无 core 引用)
-opencvsharp.mac.samples.shared (独立，无其他 reference)
+opencvsharp.crossplatform.samples.location.avalonia ──→ core + samples.shared + Avalonia
+opencvsharp.crossplatform.samples.workbench.avalonia → samples.shared (无 core 引用)
+opencvsharp.crossplatform.samples.console → samples.shared (无 core 引用)
+opencvsharp.crossplatform.samples.shared (独立，无其他 reference)
 ```
 
 ✅ 依赖方向正确（Core → Samples），无循环引用。
@@ -127,11 +129,11 @@ opencvsharp.mac.samples.shared (独立，无其他 reference)
 
 | 项目 | 路径 | 输出类型 | 目标框架 | 根命名空间 |
 |------|------|---------|---------|-----------|
-| `opencvsharp.mac.core` | `src/opencvsharp.mac.core/` | Library | net10.0 | `OpenCvSharp.Mac.Core` |
-| `opencvsharp.mac.samples.shared` | `samples/...shared/` | Library | net10.0 | file-scoped |
-| `opencvsharp.mac.samples.console` | `samples/...console/` | Exe | net10.0 | file-scoped |
-| `opencvsharp.mac.samples.location.avalonia` | `samples/...location.avalonia/` | WinExe | net10.0 | `OpenCvSharp.Mac.Samples.Location.Avalonia` |
-| `opencvsharp.mac.samples.workbench.avalonia` | `samples/...workbench.avalonia/` | WinExe | net10.0 | file-scoped |
+| `opencvsharp.crossplatform.core` | `src/opencvsharp.crossplatform.core/` | Library | net10.0 | `OpenCvSharp.CrossPlatform.Core` |
+| `opencvsharp.crossplatform.samples.shared` | `samples/...shared/` | Library | net10.0 | file-scoped |
+| `opencvsharp.crossplatform.samples.console` | `samples/...console/` | Exe | net10.0 | file-scoped |
+| `opencvsharp.crossplatform.samples.location.avalonia` | `samples/...location.avalonia/` | WinExe | net10.0 | `OpenCvSharp.CrossPlatform.Samples.Location.Avalonia` |
+| `opencvsharp.crossplatform.samples.workbench.avalonia` | `samples/...workbench.avalonia/` | WinExe | net10.0 | file-scoped |
 
 所有项目均目标 `net10.0`，所有项目均引用 `OpenCvSharp4 4.13.0.20260427`。
 
@@ -182,13 +184,13 @@ viewModel = new MainWindowViewModel(new WindowImageFileDialogService(this));
 
 ## 五、关键问题识别
 
-### 问题 1：零测试覆盖
+### 问题 1：测试覆盖仍不足
 
-**严重程度：高**
+**严重程度：中**（已从「零覆盖」改善）
 
-- 核心库 `opencvsharp.mac.core` 无任何单元测试
-- 1925 行的 `TemplateLocators.cs` 包含 SIMD 向量化、金字塔降采样、NMS 等复杂算法
-- 与 CLAUDE.md "TDD 先于实现" 规则严重冲突
+- 已有 `tests/opencvsharp.crossplatform.core.tests`（27 个 xUnit 用例），覆盖模板匹配与轮廓定位主路径
+- 1925 行的 `TemplateLocators.cs` 仍缺少 SIMD、金字塔、NMS 等分支的专项测试
+- 建议继续补充边界用例与回归测试
 
 ### 问题 2：巨型文件未拆分
 
@@ -257,10 +259,10 @@ viewModel = new MainWindowViewModel(new WindowImageFileDialogService(this));
 </Project>
 ```
 
-#### [P0-2] 为 `opencvsharp.mac.core` 添加单元测试项目
+#### [P0-2] 为 `opencvsharp.crossplatform.core` 添加单元测试项目
 
-- **问题**：零测试覆盖，核心算法无保障
-- **做法**：创建 `tests/opencvsharp.mac.core.tests/`，使用 xUnit + `OpenCvSharp4`
+- **问题**：测试覆盖仍不足，复杂算法分支缺少专项用例
+- **做法**：创建 `tests/opencvsharp.crossplatform.core.tests/`，使用 xUnit + `OpenCvSharp4`
 - **关键测试场景**：
   - `MatchCandidateUtilities`：IoU 计算、NMS 去重逻辑
   - `ContourCaches`：缓存命中/未命中行为
@@ -285,21 +287,21 @@ viewModel = new MainWindowViewModel(new WindowImageFileDialogService(this));
 - **做法**：拆分为至少 4 个文件：
 
 ```
-OpenCvSharp.Mac.Core.Matching → MatchTemplateLocator.cs        (~500 行)
-OpenCvSharp.Mac.Core.Matching → ContourTemplateLocator.cs      (~700 行)
-OpenCvSharp.Mac.Core.Refinement → RefinementEngine.cs          (~250 行，两个策略共享 patch 精化)
-OpenCvSharp.Mac.Core.Pyramid → PyramidProcessor.cs             (~300 行，两个策略共享)
+OpenCvSharp.CrossPlatform.Core.Matching → MatchTemplateLocator.cs        (~500 行)
+OpenCvSharp.CrossPlatform.Core.Matching → ContourTemplateLocator.cs      (~700 行)
+OpenCvSharp.CrossPlatform.Core.Refinement → RefinementEngine.cs          (~250 行，两个策略共享 patch 精化)
+OpenCvSharp.CrossPlatform.Core.Pyramid → PyramidProcessor.cs             (~300 行，两个策略共享)
 ```
 
 同时为主命名空间添加子命名空间（见 [P1-3]）。
 
-#### [P1-3] 为 `opencvsharp.mac.core` 添加子命名空间
+#### [P1-3] 为 `opencvsharp.crossplatform.core` 添加子命名空间
 
-- **问题**：7 个文件全部在扁平 `OpenCvSharp.Mac.Core` 命名空间
+- **问题**：7 个文件全部在扁平 `OpenCvSharp.CrossPlatform.Core` 命名空间
 - **做法**：按功能拆分命名空间：
 
 ```
-OpenCvSharp.Mac.Core
+OpenCvSharp.CrossPlatform.Core
 ├── Matching       → TemplateLocators, TemplateLocatorModels
 ├── Contours       → ContourModels, ContourCaches, ContourDescriptor
 ├── Image          → ImageHelpers
@@ -370,8 +372,8 @@ OpenCvSharp.Mac.Core
 
 #### [P3-4] 统一命名约定
 
-- 当前 `opencvsharp.mac.core` 使用 PascalCase 项目名，samples 使用下划线命名
-- 建议选择一种风格统一
+- 目录/项目名已统一为 `opencvsharp.crossplatform.*` 点分小写风格
+- 命名空间仍使用 `OpenCvSharp.CrossPlatform.*` PascalCase（符合 .NET 惯例，无需再改）
 
 ---
 
@@ -380,7 +382,7 @@ OpenCvSharp.Mac.Core
 | 优先级 | 建议 | 预期收益 | 工程量 | 风险 |
 |--------|------|---------|-------|-----|
 | **P0** | 引入 `Directory.Packages.props` | 包升级效率 5x | 小 | 极低 |
-| **P0** | 为 core 库添加单元测试 | 算法质量保障 | 中 | 低（不影响现有代码） |
+| **P0** | 扩充 core 库单元测试 | 算法质量保障 | 中 | 低（不影响现有代码） |
 | **P1** | 提取共享服务到 shared | 消除重复代码 | 中 | 低 |
 | **P1** | 拆分 TemplateLocators.cs | 降低巨型文件复杂度 | 中 | 低（只拆分不修改逻辑） |
 | **P1** | 消除 Operators/ 重叠 | 清理重构残留 | 小 | 低（纯删除） |
