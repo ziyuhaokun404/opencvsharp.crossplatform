@@ -15,9 +15,10 @@ using OpenCvSharp.CrossPlatform.Samples.Workbench.Avalonia.Application.Imaging;
 using OpenCvSharp.CrossPlatform.Samples.Workbench.Avalonia.Application.Pipeline;
 using OpenCvSharp.CrossPlatform.Samples.Workbench.Avalonia.Application.Ports;
 using OpenCvSharp.CrossPlatform.Samples.Workbench.Avalonia.Application.Workbench;
-using OpenCvSharp.CrossPlatform.Samples.Workbench.Avalonia.Operators;
+using OpenCvSharp.CrossPlatform.Samples.Workbench.Avalonia.Domain.Operators;
 using OpenCvSharp.CrossPlatform.Samples.Workbench.Avalonia.Services;
 using OpenCvSharp.CrossPlatform.Samples.Workbench.Avalonia.ViewModels.Models;
+using OpenCvSharp.CrossPlatform.Samples.Shared.Services;
 using CvPoint = OpenCvSharp.Point;
 using CvRect = OpenCvSharp.Rect;
 using CvSize = OpenCvSharp.Size;
@@ -28,11 +29,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 {
     private readonly IImageFileDialogService fileDialogService;
     private readonly WorkbenchLogger logger;
-    private readonly OperatorRegistry operatorRegistry = new();
-    private readonly PipelineRunner pipelineRunner;
-    private readonly WorkbenchHistory<List<PipelineStep>> pipelineHistory = new();
+    private readonly WorkbenchOrchestrator orchestrator;
     private readonly IImageCodec imageCodec;
-    private readonly List<PipelineStep> pipeline = [];
     private Bitmap? outputBitmap;
     private byte[]? outputBytes;
     private int failedPipelineStepIndex = -1;
@@ -177,7 +175,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         this.fileDialogService = fileDialogService;
         this.imageCodec = imageCodec;
         logger = new WorkbenchLogger(Path.Combine(AppContext.BaseDirectory, "logs"));
-        pipelineRunner = new PipelineRunner(operatorRegistry);
+        var operatorRegistry = new OperatorRegistry();
+        orchestrator = new WorkbenchOrchestrator(
+            new PipelineRunner(operatorRegistry),
+            operatorRegistry,
+            imageCodec,
+            logger);
 
         RuntimeText = $"OpenCV {Cv2.GetVersionString()}";
 
@@ -237,13 +240,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     public bool IsSliderCompareMode => CanvasMode == CanvasModeSlider;
 
-    public int ParamAMinimum => SelectedOperator is not null && operatorRegistry.FindByName(SelectedOperator.Name) is { } op ? op.ParamAMinimum : 0;
+    public int ParamAMinimum => SelectedOperator is not null && orchestrator.OperatorRegistry.FindByName(SelectedOperator.Name) is { } op ? op.ParamAMinimum : 0;
 
-    public int ParamAMaximum => SelectedOperator is not null && operatorRegistry.FindByName(SelectedOperator.Name) is { } op ? op.ParamAMaximum : 255;
+    public int ParamAMaximum => SelectedOperator is not null && orchestrator.OperatorRegistry.FindByName(SelectedOperator.Name) is { } op ? op.ParamAMaximum : 255;
 
-    public int ParamBMinimum => SelectedOperator is not null && operatorRegistry.FindByName(SelectedOperator.Name) is { } op ? op.ParamBMinimum : 0;
+    public int ParamBMinimum => SelectedOperator is not null && orchestrator.OperatorRegistry.FindByName(SelectedOperator.Name) is { } op ? op.ParamBMinimum : 0;
 
-    public int ParamBMaximum => SelectedOperator is not null && operatorRegistry.FindByName(SelectedOperator.Name) is { } op ? op.ParamBMaximum : 255;
+    public int ParamBMaximum => SelectedOperator is not null && orchestrator.OperatorRegistry.FindByName(SelectedOperator.Name) is { } op ? op.ParamBMaximum : 255;
 
     public bool IsParamBOptionsVisible => ParamBOptions.Count > 0;
 
@@ -389,7 +392,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private void SeedOperators()
     {
-        var operators = operatorRegistry.GetAll();
+        var operators = orchestrator.OperatorRegistry.GetAll();
         var viewModels = operators.Select(op => new OperatorViewModel(
             op.Category,
             op.Name,
@@ -414,8 +417,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         Assets.Add(sample);
         SelectedAsset = sample;
 
-        pipeline.Add(CreateStep(GetOperator("Gaussian Blur"), 7, 0, true));
-        pipeline.Add(CreateStep(GetOperator("Canny Edge"), 80, 160, true));
+        orchestrator.SetInitialSteps([
+            CreateStep(GetOperator("Gaussian Blur"), 7, 0, true),
+            CreateStep(GetOperator("Canny Edge"), 80, 160, true)
+        ]);
     }
 
     [RelayCommand]
@@ -470,18 +475,16 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         if (SelectedOperator is null)
             return;
 
-        PushUndoState();
-        var step = CreateStep(
+        var step = orchestrator.AddStep(CreateStep(
             SelectedOperator,
             (int)Math.Round(ParamAValue),
             (int)Math.Round(ParamBValue),
             IsStepEnabled,
-            IsClampEnabled);
+            IsClampEnabled));
 
-        pipeline.Add(step);
-        RefreshPipelineNodes(pipeline.Count);
+        RefreshPipelineNodes(orchestrator.StepCount);
         RunPipeline(false);
-        Log($"已添加步骤 {pipeline.Count:00}: {step.OperatorName}。");
+        Log($"已添加步骤 {orchestrator.StepCount:00}: {step.OperatorName}。");
     }
 
     [RelayCommand]
@@ -496,13 +499,17 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         try
         {
             failedPipelineStepIndex = -1;
-            using var source = imageCodec.Decode(SelectedAsset.ImageBytes);
-            var op = operatorRegistry.FindByName(SelectedOperator.Name);
-            if (op is null)
-                throw new InvalidOperationException($"未知算子：{SelectedOperator.Name}");
+            var result = orchestrator.Preview(
+                SelectedAsset.ImageBytes,
+                SelectedOperator.Name,
+                (int)Math.Round(ParamAValue),
+                (int)Math.Round(ParamBValue),
+                IsClampEnabled);
 
-            using var result = op.Apply(source, (int)Math.Round(ParamAValue), (int)Math.Round(ParamBValue), IsClampEnabled);
-            SetOutputFromMat(result);
+            if (!result.IsSuccess || result.Output is null)
+                throw result.Exception ?? new InvalidOperationException("预览失败。");
+
+            SetOutputFromImageBuffer(result.Output);
             RefreshCanvas();
             Log($"已预览 {SelectedOperator.Name}。");
         }
@@ -516,15 +523,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private void DeleteStep()
     {
         var index = SelectedPipelineStepIndex();
-        if (index < 0 || index >= pipeline.Count)
+        var result = orchestrator.TryDeleteStep(index);
+        if (result is null)
             return;
 
-        PushUndoState();
-        var removed = pipeline[index];
-        pipeline.RemoveAt(index);
-        RefreshPipelineNodes(Math.Min(index + 1, pipeline.Count));
+        RefreshPipelineNodes(Math.Min(index + 1, orchestrator.StepCount));
         RunPipeline(false);
-        Log($"已删除步骤 {index + 1:00}: {removed.OperatorName}。");
+        Log($"已删除步骤 {index + 1:00}: {result.Removed.OperatorName}。");
     }
 
     [RelayCommand]
@@ -549,15 +554,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private void MovePipelineStep(int delta)
     {
         var index = SelectedPipelineStepIndex();
-        var target = index + delta;
-        if (index < 0 || target < 0 || target >= pipeline.Count)
+        var result = orchestrator.TryMoveStep(index, delta);
+        if (result is null)
             return;
 
-        PushUndoState();
-        (pipeline[index], pipeline[target]) = (pipeline[target], pipeline[index]);
-        RefreshPipelineNodes(target + 1);
+        RefreshPipelineNodes(result.ToIndex + 1);
         RunPipeline(false);
-        Log($"已移动步骤到第 {target + 1} 位。");
+        Log($"已移动步骤到第 {result.ToIndex + 1} 位。");
     }
 
     [RelayCommand]
@@ -568,7 +571,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private void RunPipeline(bool writeLog)
     {
-        if (SelectedAsset is null)
+        var runResult = orchestrator.RunPipeline(SelectedAsset?.ImageBytes);
+        if (!runResult.HasImage)
         {
             outputBitmap = null;
             outputBytes = null;
@@ -580,20 +584,17 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         try
         {
             failedPipelineStepIndex = -1;
-            using var source = imageCodec.Decode(SelectedAsset.ImageBytes);
-            using var runResult = pipelineRunner.Run(source, pipeline);
-            if (!runResult.Succeeded || runResult.Output is null)
+            if (!runResult.IsSuccess || runResult.Output is null)
             {
                 failedPipelineStepIndex = runResult.FailedStepIndex;
                 throw runResult.Exception ?? new InvalidOperationException("处理流程运行失败。");
             }
 
-            SetOutputFromMat(runResult.Output);
-
+            SetOutputFromImageBuffer(runResult.Output);
             RefreshCanvas();
 
             if (writeLog)
-                Log($"已运行处理流程：{pipeline.Count(step => step.IsEnabled)} 个启用步骤。");
+                Log($"已运行处理流程：{orchestrator.EnabledStepCount} 个启用步骤。");
         }
         catch (Exception ex)
         {
@@ -614,45 +615,29 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void Undo()
     {
-        if (!pipelineHistory.CanUndo)
+        if (!orchestrator.TryUndo())
         {
             LogWarning("没有可撤销的操作。");
             return;
         }
 
-        RestorePipeline(pipelineHistory.Undo(ClonePipeline()));
+        RefreshPipelineNodes();
+        RunPipeline(false);
         Log("已撤销处理流程编辑。");
     }
 
     [RelayCommand]
     private void Redo()
     {
-        if (!pipelineHistory.CanRedo)
+        if (!orchestrator.TryRedo())
         {
             LogWarning("没有可重做的操作。");
             return;
         }
 
-        RestorePipeline(pipelineHistory.Redo(ClonePipeline()));
-        Log("已重做处理流程编辑。");
-    }
-
-    private void PushUndoState()
-    {
-        pipelineHistory.PushUndo(ClonePipeline());
-    }
-
-    private List<PipelineStep> ClonePipeline()
-    {
-        return pipeline.Select(CloneStep).ToList();
-    }
-
-    private void RestorePipeline(List<PipelineStep> snapshot)
-    {
-        pipeline.Clear();
-        pipeline.AddRange(snapshot.Select(CloneStep));
         RefreshPipelineNodes();
         RunPipeline(false);
+        Log("已重做处理流程编辑。");
     }
 
     private void RefreshOperatorList()
@@ -666,7 +651,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
         var selectedName = SelectedOperator?.Name;
         var query = OperatorSearchText.Trim();
-        var allOperators = operatorRegistry.GetAll()
+        var allOperators = orchestrator.OperatorRegistry.GetAll()
             .Select(op => new OperatorViewModel(
                 op.Category,
                 op.Name,
@@ -728,10 +713,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         PipelineNodes.Clear();
         PipelineNodes.Add(PipelineNodeViewModel.CreateInput(0, SelectedAsset?.Name ?? "未选择图像", true, IsPipelineCompact));
 
-        for (var i = 0; i < pipeline.Count; i++)
-            PipelineNodes.Add(PipelineNodeViewModel.CreateStep(i + 1, i, CreateStepModel(i, pipeline[i]), true, i == failedPipelineStepIndex, IsPipelineCompact, TogglePipelineStep));
+        for (var i = 0; i < orchestrator.StepCount; i++)
+            PipelineNodes.Add(PipelineNodeViewModel.CreateStep(i + 1, i, CreateStepModel(i, orchestrator.GetStep(i)), true, i == failedPipelineStepIndex, IsPipelineCompact, TogglePipelineStep));
 
-        PipelineNodes.Add(PipelineNodeViewModel.CreateResult(pipeline.Count + 1, failedPipelineStepIndex >= 0 ? "处理流程错误" : outputBitmap is null ? "未渲染" : "就绪", false, IsPipelineCompact));
+        PipelineNodes.Add(PipelineNodeViewModel.CreateResult(orchestrator.StepCount + 1, failedPipelineStepIndex >= 0 ? "处理流程错误" : outputBitmap is null ? "未渲染" : "就绪", false, IsPipelineCompact));
         SelectedPipelineNode = PipelineNodes.FirstOrDefault(node => node.Index == previousIndex);
         if (SelectedPipelineNode is not null && previousNode is not null)
             RefreshInspectorForPipelineNode(SelectedPipelineNode);
@@ -747,9 +732,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         InspectorSubtitleText = node.Title;
         OperatorDescriptionText = node.Subtitle;
 
-        if (node.IsStep && node.StepIndex >= 0 && node.StepIndex < pipeline.Count)
+        if (node.IsStep && node.StepIndex >= 0 && node.StepIndex < orchestrator.StepCount)
         {
-            var step = pipeline[node.StepIndex];
+            var step = orchestrator.GetStep(node.StepIndex);
             CaptureInspectorEditBaseline(step.Id);
             var op = FilteredOperators.FirstOrDefault(item => item.Name == step.OperatorName);
             if (op is not null)
@@ -771,7 +756,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             NodeDetailsText =
                 $"状态：{node.StatusText}\n" +
                 $"参数：{parameterText}\n" +
-                $"位置：第 {node.Index} 个，共 {pipeline.Count} 个";
+                $"位置：第 {node.Index} 个，共 {orchestrator.StepCount} 个";
         }
         else
         {
@@ -792,7 +777,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
 
         inspectorEditStepId = stepId;
-        inspectorEditBaseline = ClonePipeline();
+        inspectorEditBaseline = WorkbenchOrchestrator.ClonePipeline(orchestrator.Steps);
         inspectorEditUndoPushed = false;
     }
 
@@ -825,21 +810,19 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private void RefreshPipelineSummary()
     {
-        PipelineSummaryText = $"{pipeline.Count} 个步骤，{pipeline.Count(step => step.IsEnabled)} 个已启用";
-        PipelineInfoText = $"{pipeline.Count(step => step.IsEnabled)}/{pipeline.Count} 步";
+        PipelineSummaryText = $"{orchestrator.StepCount} 个步骤，{orchestrator.EnabledStepCount} 个已启用";
+        PipelineInfoText = $"{orchestrator.EnabledStepCount}/{orchestrator.StepCount} 步";
     }
 
     private void TogglePipelineStep(int index)
     {
-        if (index < 0 || index >= pipeline.Count)
+        var result = orchestrator.TryToggleStep(index);
+        if (result is null)
             return;
 
-        PushUndoState();
-        var enabled = !pipeline[index].IsEnabled;
-        pipeline[index] = pipeline[index] with { IsEnabled = enabled };
         RefreshPipelineNodes(index + 1);
         RunPipeline(false);
-        Log($"{pipeline[index].OperatorName} 已{(enabled ? "启用" : "禁用")}。");
+        Log($"{result.Step.OperatorName} 已{(result.Enabled ? "启用" : "禁用")}。");
     }
 
     private int SelectedPipelineStepIndex()
@@ -895,7 +878,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private void RefreshParameterOptions()
     {
         var selectedValue = (int)Math.Round(ParamBValue);
-        var op = SelectedOperator is null ? null : operatorRegistry.FindByName(SelectedOperator.Name);
+        var op = SelectedOperator is null ? null : orchestrator.OperatorRegistry.FindByName(SelectedOperator.Name);
         var options = op?.Descriptor.SecondaryParameter?.Options ?? [];
 
         ParamBOptions.Clear();
@@ -909,16 +892,16 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private void UpdateSelectedPipelineStepFromInspector()
     {
-        if (isSyncingPipelineSelection || SelectedPipelineNode?.StepIndex is not { } index || index < 0 || index >= pipeline.Count)
+        if (isSyncingPipelineSelection || SelectedPipelineNode?.StepIndex is not { } index || index < 0 || index >= orchestrator.StepCount)
             return;
 
-        var current = pipeline[index];
+        var current = orchestrator.GetStep(index);
         var paramA = (int)Math.Round(ParamAValue);
         var paramB = (int)Math.Round(ParamBValue);
-        var op = operatorRegistry.FindById(current.OperatorId) ?? operatorRegistry.FindByName(current.OperatorName);
+        var op = orchestrator.OperatorRegistry.FindById(current.OperatorId) ?? orchestrator.OperatorRegistry.FindByName(current.OperatorName);
         var updated = current with
         {
-            Parameters = CreateParameterValues(op, paramA, paramB),
+            Parameters = WorkbenchOrchestrator.CreateParameterValues(op, paramA, paramB),
             IsEnabled = IsStepEnabled,
             ClampOutput = IsClampEnabled
         };
@@ -927,7 +910,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
 
         PushInspectorEditUndoState(current.Id);
-        pipeline[index] = updated;
+        orchestrator.UpdateStep(index, updated);
         failedPipelineStepIndex = -1;
         RefreshPipelineNodes(index + 1);
         RunPipeline(false);
@@ -941,13 +924,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         if (inspectorEditStepId != stepId || inspectorEditBaseline is null)
             CaptureInspectorEditBaseline(stepId);
 
-        pipelineHistory.PushUndo((inspectorEditBaseline ?? ClonePipeline()).Select(CloneStep).ToList());
+        orchestrator.PushUndoSnapshot(inspectorEditBaseline ?? WorkbenchOrchestrator.ClonePipeline(orchestrator.Steps));
         inspectorEditUndoPushed = true;
     }
 
     private string FormatStepParameters(string operatorName, int paramA, int paramB)
     {
-        var op = operatorRegistry.FindByName(operatorName);
+        var op = orchestrator.OperatorRegistry.FindByName(operatorName);
         if (op is null || !OperatorHasParameters(operatorName))
             return "无参数";
 
@@ -957,7 +940,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private string FormatStepParameters(PipelineStep step)
     {
-        var op = operatorRegistry.FindById(step.OperatorId) ?? operatorRegistry.FindByName(step.OperatorName);
+        var op = orchestrator.OperatorRegistry.FindById(step.OperatorId) ?? orchestrator.OperatorRegistry.FindByName(step.OperatorName);
         if (op is null || op.Descriptor.Parameters.Count == 0)
             return "无参数";
 
@@ -970,7 +953,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private bool OperatorHasParameters(string operatorName)
     {
-        return operatorRegistry.FindByName(operatorName)?.Descriptor.Parameters.Count > 0;
+        return orchestrator.OperatorRegistry.FindByName(operatorName)?.Descriptor.Parameters.Count > 0;
     }
 
     private static int ReadParamText(string? text, double currentValue, int min, int max)
@@ -1007,9 +990,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         CanvasMode = mode;
     }
 
-    private void SetOutputFromMat(Mat result)
+    private void SetOutputFromImageBuffer(ImageBuffer image)
     {
-        var image = imageCodec.EncodePng(result);
         outputBytes = image.Bytes;
         outputBitmap = CreateBitmap(outputBytes);
         OnPropertyChanged(nameof(OutputImageSource));
@@ -1017,16 +999,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private PipelineStep CreateStep(OperatorViewModel op, int paramA, int paramB, bool enabled, bool clamp = true)
     {
-        var imageOperator = operatorRegistry.FindByName(op.Name);
-        var parameters = CreateParameterValues(imageOperator, paramA, paramB);
-
-        return new PipelineStep(
-            Guid.NewGuid(),
-            imageOperator?.Descriptor.Id ?? op.Name,
-            op.Name,
-            parameters,
-            enabled,
-            clamp);
+        var imageOperator = orchestrator.OperatorRegistry.FindByName(op.Name);
+        return orchestrator.CreateStep(imageOperator, op.Name, paramA, paramB, enabled, clamp);
     }
 
     private PipelineStepModel CreateStepModel(int index, PipelineStep step)
@@ -1042,30 +1016,15 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             step.ClampOutput);
     }
 
-    private static PipelineStep CloneStep(PipelineStep step)
-    {
-        return step with { Parameters = new Dictionary<string, int>(step.Parameters) };
-    }
-
-    private static IReadOnlyDictionary<string, int> CreateParameterValues(IImageOperator? op, int paramA, int paramB)
-    {
-        var parameters = new Dictionary<string, int>();
-        if (op?.Descriptor.PrimaryParameter is { } primary)
-            parameters[primary.Key] = paramA;
-        if (op?.Descriptor.SecondaryParameter is { } secondary)
-            parameters[secondary.Key] = paramB;
-        return parameters;
-    }
-
     private int GetPrimaryParameterValue(PipelineStep step)
     {
-        var op = operatorRegistry.FindById(step.OperatorId) ?? operatorRegistry.FindByName(step.OperatorName);
+        var op = orchestrator.OperatorRegistry.FindById(step.OperatorId) ?? orchestrator.OperatorRegistry.FindByName(step.OperatorName);
         return op?.Descriptor.PrimaryParameter is { } parameter ? step.GetParameter(parameter.Key, parameter.DefaultValue) : 0;
     }
 
     private int GetSecondaryParameterValue(PipelineStep step)
     {
-        var op = operatorRegistry.FindById(step.OperatorId) ?? operatorRegistry.FindByName(step.OperatorName);
+        var op = orchestrator.OperatorRegistry.FindById(step.OperatorId) ?? orchestrator.OperatorRegistry.FindByName(step.OperatorName);
         return op?.Descriptor.SecondaryParameter is { } parameter ? step.GetParameter(parameter.Key, parameter.DefaultValue) : 0;
     }
 

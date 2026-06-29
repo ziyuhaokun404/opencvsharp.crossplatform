@@ -1,9 +1,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using OpenCvSharp;
-using OpenCvSharp.CrossPlatform.Samples.Workbench.Avalonia.Domain.Operators;
 
-namespace OpenCvSharp.CrossPlatform.Samples.Workbench.Avalonia.Operators;
+namespace OpenCvSharp.CrossPlatform.Samples.Workbench.Avalonia.Domain.Operators;
 
 /// <summary>
 /// 图像处理算子接口。

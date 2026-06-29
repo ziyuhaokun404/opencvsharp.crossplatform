@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using OpenCvSharp;
 using OpenCvSharp.CrossPlatform.Samples.Workbench.Avalonia.Domain.Operators;
-using OpenCvSharp.CrossPlatform.Samples.Workbench.Avalonia.Operators;
 
 namespace OpenCvSharp.CrossPlatform.Samples.Workbench.Avalonia.Application.Pipeline;
 

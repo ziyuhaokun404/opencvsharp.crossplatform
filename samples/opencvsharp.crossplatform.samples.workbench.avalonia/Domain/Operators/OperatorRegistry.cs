@@ -1,8 +1,8 @@
 using System.Collections.Generic;
 using System.Linq;
-using OpenCvSharp.CrossPlatform.Samples.Workbench.Avalonia.Operators.BuiltIn;
+using OpenCvSharp.CrossPlatform.Samples.Workbench.Avalonia.Domain.Operators.BuiltIn;
 
-namespace OpenCvSharp.CrossPlatform.Samples.Workbench.Avalonia.Operators;
+namespace OpenCvSharp.CrossPlatform.Samples.Workbench.Avalonia.Domain.Operators;
 
 /// <summary>
 /// 算子注册表，管理所有可用算子。
@@ -13,7 +13,6 @@ public sealed class OperatorRegistry
 
     public OperatorRegistry()
     {
-        // 注册内置算子
         Register(new GrayscaleOperator());
         Register(new GaussianBlurOperator());
         Register(new CannyEdgeOperator());

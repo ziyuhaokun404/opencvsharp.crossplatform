@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using OpenCvSharp;
 using OpenCvSharp.CrossPlatform.Samples.Workbench.Avalonia.Domain.Operators;
 
-namespace OpenCvSharp.CrossPlatform.Samples.Workbench.Avalonia.Operators.BuiltIn;
+namespace OpenCvSharp.CrossPlatform.Samples.Workbench.Avalonia.Domain.Operators.BuiltIn;
 
 /// <summary>
 /// 灰度转换算子。

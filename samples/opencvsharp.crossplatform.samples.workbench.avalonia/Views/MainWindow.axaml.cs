@@ -2,8 +2,8 @@ using System;
 using Avalonia.Controls;
 using Avalonia.Input;
 using OpenCvSharp.CrossPlatform.Samples.Shared;
+using OpenCvSharp.CrossPlatform.Samples.Shared.Services;
 using OpenCvSharp.CrossPlatform.Samples.Workbench.Avalonia.Infrastructure.OpenCv;
-using OpenCvSharp.CrossPlatform.Samples.Workbench.Avalonia.Services;
 using OpenCvSharp.CrossPlatform.Samples.Workbench.Avalonia.ViewModels;
 using AvaloniaWindow = Avalonia.Controls.Window;
 
