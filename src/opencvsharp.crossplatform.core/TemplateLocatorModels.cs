@@ -1,8 +1,9 @@
 using System;
 using System.Collections.Generic;
 using OpenCvSharp;
+using OpenCvSharp.CrossPlatform.Core.Profiling;
 
-namespace OpenCvSharp.CrossPlatform.Core;
+namespace OpenCvSharp.CrossPlatform.Core.Matching;
 
 public sealed record TemplateLocatorOptions(
     TemplateMatchModes Method,
@@ -32,3 +33,10 @@ public sealed record TemplateLocatorResult(
     int? PyramidMinTemplateEdge = null);
 
 public readonly record struct MatchCandidate(Rect Rect, double Score, double Angle = 0);
+
+public interface ITemplateLocator
+{
+    string Name { get; }
+
+    TemplateLocatorResult Locate(Mat source, Mat template, TemplateLocatorOptions options);
+}

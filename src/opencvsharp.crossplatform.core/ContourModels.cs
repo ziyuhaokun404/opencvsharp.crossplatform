@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using OpenCvSharp;
 
-namespace OpenCvSharp.CrossPlatform.Core;
+namespace OpenCvSharp.CrossPlatform.Core.Contours;
 
 public sealed record TemplateContourProfile(Size TemplateSize, IReadOnlyList<ContourDescriptor> Contours);
 

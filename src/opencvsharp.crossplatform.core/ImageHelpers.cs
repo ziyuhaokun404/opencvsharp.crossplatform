@@ -1,6 +1,6 @@
-using OpenCvSharp;
+﻿using OpenCvSharp;
 
-namespace OpenCvSharp.CrossPlatform.Core;
+namespace OpenCvSharp.CrossPlatform.Core.Image;
 
 internal static class ImageHelpers
 {
@@ -10,7 +10,10 @@ internal static class ImageHelpers
     public static Mat ConvertToGray(Mat source)
     {
         var gray = new Mat();
-        Cv2.CvtColor(source, gray, ColorConversionCodes.BGR2GRAY);
+        if (source.Channels() == 1)
+            source.CopyTo(gray);
+        else
+            Cv2.CvtColor(source, gray, ColorConversionCodes.BGR2GRAY);
         return gray;
     }
 }

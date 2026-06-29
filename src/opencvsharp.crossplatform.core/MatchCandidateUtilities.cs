@@ -1,8 +1,9 @@
 using System;
 using System.Collections.Generic;
 using OpenCvSharp;
+using OpenCvSharp.CrossPlatform.Core.Matching;
 
-namespace OpenCvSharp.CrossPlatform.Core;
+namespace OpenCvSharp.CrossPlatform.Core.Selection;
 
 public static class MatchCandidateUtilities
 {

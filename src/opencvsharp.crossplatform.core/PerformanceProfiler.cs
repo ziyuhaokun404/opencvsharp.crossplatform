@@ -1,10 +1,7 @@
-using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Globalization;
-using System.Text;
 
-namespace OpenCvSharp.CrossPlatform.Core;
+namespace OpenCvSharp.CrossPlatform.Core.Profiling;
 
 /// <summary>
 /// Captures sub-millisecond step timings within a single algorithm run.
@@ -63,75 +60,6 @@ public sealed class PerformanceProfile
     }
 }
 
-public sealed record ProfileStep(string Name, double ElapsedMs, string? Detail = null)
-{
-    public override string ToString()
-    {
-        var ms = ElapsedMs.ToString("0.000", CultureInfo.InvariantCulture);
-        return Detail is null
-            ? $"  {Name,-28} {ms,8} ms"
-            : $"  {Name,-28} {ms,8} ms  ({Detail})";
-    }
-}
+public sealed record ProfileStep(string Name, double ElapsedMs, string? Detail = null);
 
-public sealed record ProfileResult(string OperationName, double TotalMs, ProfileStep[] Steps)
-{
-    /// <summary>
-    /// Multi-line formatted summary suitable for display in the UI console.
-    /// </summary>
-    public string ToDisplayText()
-    {
-        var sb = new StringBuilder();
-        sb.AppendLine($"── {OperationName}  总耗时 {TotalMs:0.000} ms ──");
-        foreach (var step in Steps)
-            sb.AppendLine(step.ToString());
-        return sb.ToString();
-    }
-
-    /// <summary>
-    /// Single-line compact summary for the status bar.
-    /// </summary>
-    public string ToStatusText()
-    {
-        var sb = new StringBuilder();
-        sb.Append($"{OperationName}: ");
-        for (var i = 0; i < Steps.Length; i++)
-        {
-            if (i > 0) sb.Append(" → ");
-            sb.Append($"{Steps[i].Name} {Steps[i].ElapsedMs:0.00}ms");
-        }
-        sb.Append($" | 总计 {TotalMs:0.00}ms");
-        return sb.ToString();
-    }
-
-    /// <summary>
-    /// Creates view models for structured UI rendering with proportional time bars.
-    /// </summary>
-    public IReadOnlyList<ProfileStepViewModel> ToStepViewModels()
-    {
-        var result = new List<ProfileStepViewModel>(Steps.Length);
-        foreach (var step in Steps)
-        {
-            var pct = TotalMs > 0 ? step.ElapsedMs / TotalMs * 100.0 : 0;
-            result.Add(new ProfileStepViewModel(
-                step.Name,
-                $"{step.ElapsedMs:0.000}",
-                step.Detail,
-                pct));
-        }
-        return result;
-    }
-}
-
-/// <summary>
-/// View model for a single profiling step, designed for rich UI display.
-/// </summary>
-public sealed record ProfileStepViewModel(
-    string Name,
-    string TimeText,
-    string? Detail,
-    double Percentage)
-{
-    /// <summary>Width multiplier for the proportional bar (0..1).</summary>
-    public double BarFraction => Math.Clamp(Percentage / 100.0, 0, 1);
-}
+public sealed record ProfileResult(string OperationName, double TotalMs, ProfileStep[] Steps);
