@@ -46,8 +46,10 @@ opencvsharp.crossplatform/
 │       └── PerformanceProfiler.cs
 │
 └── samples/
-    ├── opencvsharp.crossplatform.samples.shared/        # 共享工具库（原生运行时解析）
+    ├── opencvsharp.crossplatform.samples.shared/        # 共享工具库（原生运行时解析 + 跨样本服务）
     │   ├── OpenCvSharpNativeRuntime.cs
+    │   ├── Logging/AsyncFileLogger.cs
+    │   ├── Services/IImageFileDialogService.cs, WindowImageFileDialogService.cs
     │   └── opencvsharp.crossplatform.samples.shared.csproj
     │
     ├── opencvsharp.crossplatform.samples.console/       # 控制台演示
@@ -55,7 +57,9 @@ opencvsharp.crossplatform/
     │   └── opencvsharp.crossplatform.samples.console.csproj
     │
     ├── opencvsharp.crossplatform.samples.location.avalonia/   ← 模板匹配可视化器 + 基准测试
-    │   ├── App/
+    │   ├── Program.cs, App.axaml(.cs), app.manifest
+    │   ├── Application/          # 图像会话、匹配执行、基准测试
+    │   ├── Presentation/         # 结果映射 + Profiling UI（ProfileStepViewModel, ProfilePresentationMapper）
     │   ├── Converters/            # FractionToWidthConverter
     │   ├── Services/             # PerformanceLogger, TemplateMatchSettingsStore, WindowImageFileDialogService
     │   ├── ViewModels/
@@ -76,18 +80,13 @@ opencvsharp.crossplatform/
         │   ├── Ports/            # IImageCodec（端口接口）
         │   └── Workbench/        # WorkbenchHistory（撤销/重做栈）
         ├── Domain/               # 领域层
-        │   ├── Operators/        # IImageOperator 接口、OperatorParameter、Descriptor
-        │   │   └── BuiltIn/      # 10 个内置算子（Grayscale, Blur, Canny, Threshold, Resize, Rotate 等）
+        │   ├── Operators/        # IImageOperator、OperatorRegistry、BuiltIn/（10 个算子）
+        │   │   └── BuiltIn/      # Grayscale, Blur, Canny, Threshold, Resize, Rotate 等
         │   └── Shared/           # ValueRange
         ├── Infrastructure/       # 基础设施层
         │   └── OpenCv/           # OpenCvImageCodec（IImageCodec 实现）
         │
-        ├── Operators/            # ⚠️ 旧位置（与 Domain/Operators/ 重叠，待清理）
-        │   ├── IImageOperator.cs
-        │   ├── OperatorRegistry.cs
-        │   └── BuiltIn/           # 10 个内置算子（旧位置）
-        │
-        ├── Services/             # IImageFileDialogService, WindowImageFileDialogService, WorkbenchLogger
+        ├── Services/             # WorkbenchLogger（继承 AsyncFileLogger）
         ├── ViewModels/
         │   ├── MainWindowViewModel.cs  # ~1105 行（重构目标：降至 250-400 行）
         │   └── Models/               # ImageAsset, Operator, Parameter, PipelineNode
@@ -135,7 +134,7 @@ opencvsharp.crossplatform.samples.shared (独立，无其他 reference)
 | `opencvsharp.crossplatform.samples.location.avalonia` | `samples/...location.avalonia/` | WinExe | net10.0 | `OpenCvSharp.CrossPlatform.Samples.Location.Avalonia` |
 | `opencvsharp.crossplatform.samples.workbench.avalonia` | `samples/...workbench.avalonia/` | WinExe | net10.0 | file-scoped |
 
-所有项目均目标 `net10.0`，所有项目均引用 `OpenCvSharp4 4.13.0.20260427`。
+所有项目均目标 `net10.0`，通过根目录 `Directory.Packages.props` 中央管理包版本；`OpenCvSharp4` 当前为 `4.13.0.20260528`。
 
 ---
 
@@ -186,10 +185,11 @@ viewModel = new MainWindowViewModel(new WindowImageFileDialogService(this));
 
 ### 问题 1：测试覆盖仍不足
 
-**严重程度：中**（已从「零覆盖」改善）
+**严重程度：中**（已从「零覆盖」持续改善）
 
-- 已有 `tests/opencvsharp.crossplatform.core.tests`（27 个 xUnit 用例），覆盖模板匹配与轮廓定位主路径
-- 1925 行的 `TemplateLocators.cs` 仍缺少 SIMD、金字塔、NMS 等分支的专项测试
+- 已有 `tests/opencvsharp.crossplatform.core.tests`（35 个 xUnit 用例），覆盖 NMS/IoU、轮廓缓存、性能分析、基准汇总统计等
+- 已新增定位器集成测试（`TemplateLocatorIntegrationTests`：`MatchTemplateLocator` + `ContourTemplateLocator`）及大网格 NMS 回归（`NmsGridTests`，>256 格对比暴力参考实现）
+- 1925 行的 `TemplateLocators.cs` 仍缺少 SIMD、金字塔等深层分支的专项测试
 - 建议继续补充边界用例与回归测试
 
 ### 问题 2：巨型文件未拆分
@@ -201,11 +201,10 @@ viewModel = new MainWindowViewModel(new WindowImageFileDialogService(this));
 
 ### 问题 3：包版本硬编码重复
 
-**严重程度：中**
+**严重程度：低**（P0-1 已缓解）
 
-- `OpenCvSharp4 4.13.0.20260427` 在 5 个 csproj 中逐字重复
-- `Avalonia 12.0.3` 及相关包在 2 个 Avalonia 项目中重复
-- 升级任何包需编辑 5 个文件
+- `Directory.Packages.props` 已集中管理 `OpenCvSharp4`（`4.13.0.20260528`）、Avalonia、xUnit 等版本；各 csproj 使用无版本号的 `<PackageReference>`
+- 升级包仍只需编辑一处，但新增项目/包时需记得在 `Directory.Packages.props` 登记
 
 ### 问题 4：重构进行中但未完成
 
@@ -234,90 +233,76 @@ viewModel = new MainWindowViewModel(new WindowImageFileDialogService(this));
 
 ### P0 — 立即改进（低风险、高收益）
 
-#### [P0-1] 引入 `Directory.Packages.props` 集中包版本管理
+> **状态（2026-06-29）**：P0-1、P0-2 及下列 Location 样本修补均已完成。
+
+#### [P0-1] 引入 `Directory.Packages.props` 集中包版本管理 ✅
 
 - **问题**：所有 5 个项目硬编码相同包版本，升级需编辑 5 个文件
-- **做法**：创建 `Directory.Packages.props`，使用 `CentralPackageVersion`
-- **收益**：包升级效率提升 5 倍，消除版本不一致风险
-- **工程量**：1 个文件 + 修改 5 个 csproj（替换 `<PackageReference Version="x">` 为 `<PackageReference>`）
+- **完成**：已创建 `Directory.Packages.props`（`ManagePackageVersionsCentrally`），各 csproj 改为无版本号 `<PackageReference>`；`OpenCvSharp4` 已对齐至 `4.13.0.20260528`
 
-```xml
-<!-- Directory.Packages.props 示例 -->
-<Project>
-  <PropertyGroup>
-    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
-  </PropertyGroup>
-  <ItemGroup>
-    <PackageVersion Include="OpenCvSharp4" Version="4.13.0.20260427" />
-    <PackageVersion Include="Avalonia" Version="12.0.3" />
-    <PackageVersion Include="Avalonia.Desktop" Version="12.0.3" />
-    <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.0.3" />
-    <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
-    <PackageVersion Include="xunit" Version="2.9.2" />
-    <!-- ... -->
-  </ItemGroup>
-</Project>
-```
-
-#### [P0-2] 为 `opencvsharp.crossplatform.core` 添加单元测试项目
+#### [P0-2] 为 `opencvsharp.crossplatform.core` 添加单元测试项目 ✅
 
 - **问题**：测试覆盖仍不足，复杂算法分支缺少专项用例
-- **做法**：创建 `tests/opencvsharp.crossplatform.core.tests/`，使用 xUnit + `OpenCvSharp4`
-- **关键测试场景**：
-  - `MatchCandidateUtilities`：IoU 计算、NMS 去重逻辑
-  - `ContourCaches`：缓存命中/未命中行为
-  - `PerformanceProfiler`：时间测量精度
-  - `ImageHelpers`：灰度转换正确性
-  - `MatchTemplateLocator`：已知固定图片的匹配结果可重复性
-- **工程量**：新建项目 + 约 20-30 个测试用例
+- **完成**：`tests/opencvsharp.crossplatform.core.tests/` 现有 **35** 个 xUnit 用例，覆盖：
+  - `MatchCandidateUtilities` / `NmsTests`：IoU、NMS 去重
+  - `NmsGridTests`：>256 网格 NMS 与暴力参考实现一致性
+  - `ContourResponseCacheTests`：缓存命中/未命中
+  - `PerformanceProfileTests`：性能分析数据结构
+  - `TemplateLocatorIntegrationTests`：`MatchTemplateLocator` 与 `ContourTemplateLocator` 固定图案集成
+  - `BenchmarkSummaryTests`：基准汇总统计（均值、分位数、稳定性）
+- **剩余**：SIMD、金字塔等 `TemplateLocators.cs` 深层分支仍缺专项测试
+
+#### [P0-3] Location 样本稳定性与 UX 修补 ✅
+
+- **基准线程安全**：`TemplateLocatorSnapshotFactory` 在基准/训练路径为 `ContourTemplateLocator` 创建快照，避免并发 `Train()` 共享可变状态
+- **UX**：工具栏 `ImportTemplate` 按钮；基准图表标题随运行次数动态显示（`{N} 次运行耗时`）；`LoadPersistedImages()` 对损坏/不兼容设置文件优雅降级（捕获 `JsonException` 等并忽略）
 
 ### P1 — 中期改进（需设计决策）
 
-#### [P1-1] 提取跨项目共享服务到 `samples.shared`
+> **状态（2026-06-29）**：P1 全部完成。
+
+#### [P1-1] 提取跨项目共享服务到 `samples.shared` ✅
 
 - **问题**：两个 Avalonia 项目各自有 `WindowImageFileDialogService`；日志器模式重复
-- **做法**：
-  - 将 `IImageFileDialogService` 接口和实现移到 `samples.shared`
-  - 提取 `AsyncFileLogger` 基类（消除 `PerformanceLogger` 和 `WorkbenchLogger` 的重复）
-- **收益**：消除 ~60 行重复代码，统一服务抽象
+- **完成**：
+  - `samples.shared/Services/`：`IImageFileDialogService`、`ImageFileResult`、`WindowImageFileDialogService`（含 Open/Save PNG）
+  - `samples.shared/Logging/AsyncFileLogger.cs`：异步 Channel 写入、日志轮转、14 天保留
+  - Location `PerformanceLogger`、Workbench `WorkbenchLogger` 改为继承 `AsyncFileLogger`
+  - 删除 Location/Workbench 中重复的 dialog 服务与 `ImageFileResult` 定义
+- **收益**：消除 ~120 行重复代码，统一服务抽象
 
-#### [P1-2] 拆分 `TemplateLocators.cs` 巨型文件
+#### [P1-2] 拆分 `TemplateLocators.cs` 巨型文件 ✅
 
 - **问题**：1925 行一处文件，含两个 Strategy 实现和多个共享辅助逻辑
-- **做法**：拆分为至少 4 个文件：
+- **完成**：
+  - 删除 `TemplateLocators.cs`，拆为 `MatchTemplateLocator.cs`（~1200 行，含嵌套精化类型）与 `ContourTemplateLocator.cs`（~720 行）
+  - `ITemplateLocator` 并入 `TemplateLocatorModels.cs`
+  - 精化/金字塔逻辑仍为 `MatchTemplateLocator` 私有嵌套类（未单独提取 `RefinementEngine`/`PyramidProcessor`，留作 P2 可选深化）
+- **收益**：单文件从 1925 行降至最大 ~1200 行，locator 职责边界清晰
 
-```
-OpenCvSharp.CrossPlatform.Core.Matching → MatchTemplateLocator.cs        (~500 行)
-OpenCvSharp.CrossPlatform.Core.Matching → ContourTemplateLocator.cs      (~700 行)
-OpenCvSharp.CrossPlatform.Core.Refinement → RefinementEngine.cs          (~250 行，两个策略共享 patch 精化)
-OpenCvSharp.CrossPlatform.Core.Pyramid → PyramidProcessor.cs             (~300 行，两个策略共享)
-```
-
-同时为主命名空间添加子命名空间（见 [P1-3]）。
-
-#### [P1-3] 为 `opencvsharp.crossplatform.core` 添加子命名空间
+#### [P1-3] 为 `opencvsharp.crossplatform.core` 添加子命名空间 ✅
 
 - **问题**：7 个文件全部在扁平 `OpenCvSharp.CrossPlatform.Core` 命名空间
-- **做法**：按功能拆分命名空间：
+- **完成**：按功能拆分命名空间：
 
 ```
-OpenCvSharp.CrossPlatform.Core
-├── Matching       → TemplateLocators, TemplateLocatorModels
-├── Contours       → ContourModels, ContourCaches, ContourDescriptor
-├── Image          → ImageHelpers
-├── Selection      → MatchCandidateUtilities (NMS)
-└── Profiling      → PerformanceProfiler
+OpenCvSharp.CrossPlatform.Core.Matching    → MatchTemplateLocator, ContourTemplateLocator, TemplateLocatorModels
+OpenCvSharp.CrossPlatform.Core.Contours    → ContourModels, ContourCaches
+OpenCvSharp.CrossPlatform.Core.Image       → ImageHelpers
+OpenCvSharp.CrossPlatform.Core.Selection   → MatchCandidateUtilities (NMS)
+OpenCvSharp.CrossPlatform.Core.Profiling   → PerformanceProfile, ProfileStep, ProfileResult
 ```
 
-为未来拆分到多个 csproj 做好名称空间准备。
+- Location 与 core.tests 项目通过 csproj `<Using Include="..."/>` 引入子命名空间
+- **Profiler UI（2026-06-29）**：`ProfileStepViewModel` 与 `ToDisplayText`/`ToStatusText`/`ToStepViewModels` 扩展方法已迁至 Location 样本 `Presentation/Profiling/`；`MainWindow.axaml` 绑定使用 `Presentation.Profiling` 前缀
 
-#### [P1-4] 消除 `Operators/` 与 `Domain/Operators/` 重叠
+#### [P1-4] 消除 `Operators/` 与 `Domain/Operators/` 重叠 ✅
 
 - **问题**：Workbench 项目同时存在 `Domain/Operators/`（重构后新位置）和 `Operators/`（旧位置），重构进行中但未完成
-- **做法**：
-  1. 对比 `Operators/IImageOperator.cs` 与 `Domain/Operators/` 中的接口定义
-  2. 确认 `Operators/BuiltIn/` 的算子与 `Domain/Operators/BuiltIn/` 的一致性
-  3. 完成迁移后删除 `Operators/` 整个目录
+- **完成**：
+  1. 将 `IImageOperator`、`OperatorRegistry` 及 10 个 `BuiltIn/` 算子迁移至 `Domain/Operators/`
+  2. 更新 `PipelineRunner`、`MainWindowViewModel` 引用
+  3. 删除旧 `Operators/` 目录
 - **工程量**：小（验证 + 删除）
 
 ### P2 — 中期改进（预计较大改动）
@@ -333,42 +318,58 @@ OpenCvSharp.CrossPlatform.Core
 
 #### [P2-2] 将 `MainWindowViewModel` 职责拆分
 
-- **问题**：Location VM（906 行）+ Workbench VM（1105 行）混用 UI 状态 + 业务逻辑 + 历史管理
-- **做法**：
-  - **Location 项目**：提取 `TemplateMatchOrchestrator`——负责执行匹配、管理基准测试会话、持有结果历史。ViewModel 只持有 UI 状态委托给 Orchestrator。
-  - **Workbench 项目**：按计划文档创建 `WorkbenchSession` 或 `WorkbenchOrchestrator`——管理 PipelineRun、Undo/Redo 栈、图像资产管理。ViewModel 仅持有 UI 状态。
-- **目标**：ViewModel 降至 250-400 行（与计划文档一致）
+- **问题**：Location VM + Workbench VM 混用 UI 状态 + 业务逻辑 + 历史管理
+- **Location 进展（2026-06-29）** ✅：
+  - 新增 `Application/Matching/TemplateMatchOrchestrator.cs` — 匹配、轮廓训练、稳定性/性能分析基准
+  - `TemplateMatchOrchestrationResults.cs` — `MatchOrchestrationResult` / `TrainOrchestrationResult`
+  - `MainWindowViewModel.Commands.cs` 仅负责 UI 状态更新；`BenchmarkPanelViewModel` 委托 orchestrator 执行
+  - `TemplateLocatorSnapshotFactory.DisposeOwnedLocator` — locator 生命周期从 ViewModel 层下沉
+  - MainWindowViewModel 三文件合计 ~330 行（目标 250–400 行区间）
+- **Workbench 进展（2026-06-29）** ✅：
+  - 新增 `Application/Workbench/WorkbenchOrchestrator.cs` — 处理流程变更、撤销/重做、运行与单算子预览
+  - `WorkbenchOrchestrationResults.cs` — `WorkbenchPipelineRunResult` / `WorkbenchPreviewResult` 及变更结果记录
+  - `ClonePipeline` / `CloneStep` / `CreateParameterValues` 从 ViewModel 下沉至 orchestrator
+  - `MainWindowViewModel` 保留 Observable 绑定、画布刷新与 `WorkbenchLogger` 用户消息；~1064 行（UI 状态占主导，后续可拆 partial）
+- **Workbench 可选后续**：`WorkbenchSession`（素材/输出会话）、ViewModel partial 拆分（Inspector / Pipeline / Canvas）
 
 #### [P2-3] 提取 View 侧可复用控件
 
 - **问题**：`MainWindow.axaml.cs`（Location）~740 行——ROI 拖拽、缩放动画、画布平移、旋转矩形渲染全部混在代码-behind
-- **做法**：提取为独立 Avalonia Control，类似已有的 `MatchOverlayControl`：
-  - `ImageViewportControl` — 缩放/平移/适配到容器
-  - `RoiEditorControl` — ROI 矩形交互拖拽编辑
-  - `OverlayRenderer` — 匹配结果叠加层（连接线、标注框、角度弧线）
-- **收益**：改善 MVVM 纯度，控件可跨项目复用
+- **完成（2026-06-29）**：
+  - `Controls/ImageDisplayTransform.cs` — 图像/屏幕坐标变换
+  - `Controls/ImageViewportController.cs` — 缩放、平移、动画
+  - `Controls/TemplateRoiEditorControl.axaml(.cs)` — ROI 移动/缩放/旋转与 `RotatedRect` 输出
+  - `MatchOverlayControl` — 匹配结果叠加层（已有）
+  - `MainWindow.axaml.cs` 从 ~740 行降至 ~380 行
+- **可选后续**：将视口 + ROI 合并为单一 `SourceImageViewport` 复合控件
 
 ### P3 — 低优先级/渐进式
 
-#### [P3-1] 添加 CI/CD 流水线
+#### [P3-1] 添加 CI/CD 流水线 ✅
 
 - **问题**：无任何自动化构建/测试
-- **做法**：创建 `.github/workflows/ci.yml`，至少包含：
-  - `dotnet build` 所有项目
-  - `dotnet test`（待 P0-2 测试项目建好后）
-  - macOS 集成测试：构建 native runtime + console sample smoke test
-  - 触发条件：push/main + pull_request
-- **注意**：原生运行时构建需要 `brew install opencv`，CI 环境需配置
+- **完成（2026-06-29）**：`.github/workflows/ci.yml`
+  - 触发：`push`/`pull_request` → `main`/`master`
+  - 运行环境：`windows-latest` + .NET 10
+  - 步骤：restore → build 全部 6 个项目 → `dotnet test`（35 用例）
+- **待做**：macOS job（native runtime + console smoke test，需 `brew install opencv`）
 
 #### [P3-2] 统一日志基础设施
 
 - **做法**：在 `samples.shared` 创建 `AsyncFileLogger`，两个项目共用
 - **额外**：将日志格式从纯文本改为结构化（JSON 行），便于后续分析
 
-#### [P3-3] 解耦 `PerformanceProfiler` 的 UI 逻辑
+#### [P3-3] 解耦 `PerformanceProfiler` 的 UI 逻辑 ✅
 
 - **问题**：`ProfileResult` 有 `ToDisplayText()`、`ToStatusText()`、`ToStepViewModels()`——呈现逻辑不应在核心算法层
-- **做法**：核心层只返回原始数据（时间戳、操作名、耗时），UI 层负责格式化
+- **完成（2026-06-29）**：
+  - **Core 层**（`OpenCvSharp.CrossPlatform.Core.Profiling`）：仅保留 `PerformanceProfile`、`ProfileStep`、`ProfileResult` 原始数据结构
+  - **Presentation 层**（Location 样本 `Presentation/Profiling/`）：
+    - `ProfileStepViewModel.cs` — UI 绑定模型（名称、耗时文本、百分比、`BarFraction`）
+    - `ProfilePresentationMapper.cs` — `ToDisplayText`、`ToStatusText`、`ToStepViewModels`、`FormatStepLine` 扩展方法
+  - **消费者更新**：`MatchResultViewModel`、`PerformanceLogger`、`MainWindow.axaml` 引用 `Presentation.Profiling`
+  - **测试拆分**：`PerformanceProfileTests`（core 原始 profiling）+ `ProfilePresentationTests`（UI 格式化，引用 Location 项目）
+- **收益**：核心库无 UI 呈现依赖；Workbench 等未来 UI 可各自实现格式化层
 
 #### [P3-4] 统一命名约定
 
@@ -381,22 +382,29 @@ OpenCvSharp.CrossPlatform.Core
 
 | 优先级 | 建议 | 预期收益 | 工程量 | 风险 |
 |--------|------|---------|-------|-----|
-| **P0** | 引入 `Directory.Packages.props` | 包升级效率 5x | 小 | 极低 |
-| **P0** | 扩充 core 库单元测试 | 算法质量保障 | 中 | 低（不影响现有代码） |
-| **P1** | 提取共享服务到 shared | 消除重复代码 | 中 | 低 |
-| **P1** | 拆分 TemplateLocators.cs | 降低巨型文件复杂度 | 中 | 低（只拆分不修改逻辑） |
-| **P1** | 消除 Operators/ 重叠 | 清理重构残留 | 小 | 低（纯删除） |
+| **P0** ✅ | 引入 `Directory.Packages.props` | 包升级效率 5x | 小 | 极低 |
+| **P0** ✅ | 扩充 core 库单元测试（35 用例） | 算法质量保障 | 中 | 低（不影响现有代码） |
+| **P0** ✅ | Location 样本稳定性与 UX 修补 | 基准可靠性与易用性 | 小 | 低 |
+| **P1** ✅ | 提取共享服务到 shared | 消除重复代码 | 中 | 低 |
+| **P1** ✅ | 拆分 TemplateLocators.cs | 降低巨型文件复杂度 | 中 | 低（只拆分不修改逻辑） |
+| **P1** ✅ | 添加 core 子命名空间 | 为未来拆分 csproj 准备 | 中 | 低 |
+| **P1** ✅ | 消除 Operators/ 重叠 | 清理重构残留 | 小 | 低（纯删除） |
+| **P2** ✅ | 提取 View 侧绘图控件 | 改善 MVVM 纯度 | 中 | 低 |
 | **P2** | 引入 DI 容器 | 改善可测试性 | 中 | 中（需完成 DDD 重构后） |
-| **P2** | 拆分 MainWindowViewModel | 改善职责分离 | 大 | 中（多文件改写） |
-| **P2** | 提取 View 侧绘图控件 | 改善 MVVM 纯度 | 中 | 低 |
-| **P3** | 添加 CI/CD | 自动化质量门 | 中 | 低 |
+| **P2** ✅ | 拆分 Location ViewModel（Orchestrator） | 改善职责分离 | 大 | 中 |
+| **P2** | 拆分 Workbench ViewModel | 改善职责分离 | 大 | 中 |
+| **P3** ✅ | 添加 CI/CD（Windows） | 自动化质量门 | 中 | 低 |
 | **P3** | 统一日志基础设施 | 简化日志维护 | 中 | 低 |
-| **P3** | 解耦 Profiler UI 逻辑 | 纯化核心层 | 小 | 低 |
+| **P3** ✅ | 解耦 Profiler UI 逻辑 | 纯化核心层 | 小 | 低 |
 | **P3** | 统一命名约定 | 改善可读性 | 小 | 低 |
 
 ### 推荐行动路径
 
-1. **本周**：完成 P0-1（Directory.Packages.props）+ P0-2（单元测试项目 + 首批测试用例）
-2. **下周**：完成 P1-3（core 命名空间拆分）+ P1-4（清理 Operators/ 重叠）+ P1-1（提取共享服务）
-3. **月中**：完成 P1-2（TemplateLocators.cs 拆分）+ P2-3（提取 View 控件）+ P3-2（统一日志）
-4. **后续**：等 Workbench DDD 重构完成后，再进行 P2-1（DI）+ P2-2（ViewModel 拆分）+ P3-1（CI/CD）
+1. ~~**本周**~~：**已完成** P0-1（Directory.Packages.props）+ P0-2（35 个 core 测试用例）+ P0-3（Location 快照/UX）
+2. ~~**本周**~~：**已完成** P1-1（共享服务/AsyncFileLogger）+ P1-4（Operators 迁移至 Domain/Operators）
+3. ~~**本周**~~：**已完成** P1-3（core 子命名空间）+ P1-2（TemplateLocators 拆分为 Match/Contour 两文件）
+4. ~~**下周**~~：**已完成** P3-1（Windows CI）+ P2-3（`ImageViewportController` + `TemplateRoiEditorControl`）
+5. ~~**下一步**~~：**已完成** P2-2 Location 部分（`TemplateMatchOrchestrator`）
+6. ~~**下一步**~~：**已完成** P3-3（Profiler UI 解耦 → `Presentation/Profiling`）
+7. ~~**下一步**~~：**已完成** Workbench `WorkbenchOrchestrator`（Pipeline、Undo/Redo、运行、预览）
+8. **后续**：P2-1（DI，Workbench DDD 完成后）+ P3-2（结构化日志）+ Workbench VM partial 拆分
