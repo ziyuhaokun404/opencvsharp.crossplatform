@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore tests/opencvsharp.crossplatform.core.tests/opencvsharp.crossplatform.core.tests.csproj
+
+      - name: Build
+        run: |
+          dotnet build src/opencvsharp.crossplatform.core/opencvsharp.crossplatform.core.csproj --no-restore
+          dotnet build samples/opencvsharp.crossplatform.samples.shared/opencvsharp.crossplatform.samples.shared.csproj
+          dotnet build samples/opencvsharp.crossplatform.samples.console/opencvsharp.crossplatform.samples.console.csproj
+          dotnet build samples/opencvsharp.crossplatform.samples.workbench.avalonia/opencvsharp.crossplatform.samples.workbench.avalonia.csproj
+          dotnet build samples/opencvsharp.crossplatform.samples.location.avalonia/opencvsharp.crossplatform.samples.location.avalonia.csproj
+          dotnet build tests/opencvsharp.crossplatform.core.tests/opencvsharp.crossplatform.core.tests.csproj
+
+      - name: Test
+        run: dotnet test tests/opencvsharp.crossplatform.core.tests/opencvsharp.crossplatform.core.tests.csproj --no-build --verbosity normal
